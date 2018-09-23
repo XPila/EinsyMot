@@ -438,8 +438,8 @@ int8_t cmd_do_mod_with_args(uint8_t mod_id, char pref, uint8_t cmd_id, char* pst
 				st4_axis[mod_id].dec = val_ui16;
 				return ret;
 			case CMD_ID_POS:
-				if ((ret = cmd_scan_i16(pstr, &val_i16)) < 0) return ret;
-				st4_axis[mod_id].pos = val_i16;
+				if ((ret = cmd_scan_i32(pstr, &val0.i32)) < 0) return ret;
+				st4_axis[mod_id].pos = val0.i32;
 				return ret;
 			case CMD_ID_SRX:
 				if ((ret = cmd_scan_ui16_min_max(pstr, &val_ui16, 0, ST4_MAX_SR)) < 0) return ret;
