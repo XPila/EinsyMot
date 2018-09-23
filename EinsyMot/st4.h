@@ -45,14 +45,6 @@ typedef union
 	} ui16;
 } u32u16_t;
 
-//structure for one axis move transaction
-typedef struct
-{
-	uint16_t nac;              //number of accelerating steps (sr0->srm)
-	uint32_t nrm;              //number of running steps (srm)
-	uint16_t ndc;              //number of decelerating steps (srm->sr0)
-} st4_mov1_t;
-
 //structure for axis parameters
 typedef struct
 {
@@ -66,9 +58,13 @@ typedef struct
 	uint16_t ndc;              //number of decelerating steps (srm->sr0)
 	u32u16_t srx;              //current steprate [steps/65536*s]
 	int32_t  pos;              //current position [steps]
-	uint8_t  flg;              //flags (bit 0 - motion, bit1 - accel, bit2 - decel, bit4 - min endstop, bit5 - max endstop)
+//	uint8_t  flg;              //flags (bit 0 - motion, bit1 - accel, bit2 - decel, bit4 - min endstop, bit5 - max endstop)
 	uint16_t cnt;              //counter
-	st4_mov1_t mov;            //move transaction
+	uint16_t d2s;              //d2 sum
+	uint8_t  flg;              //flags (bit0 - accel, bit1 - run, bit2 - decel)
+	uint16_t cac;              //accelerating step count
+	uint32_t crm;              //running step count
+	uint16_t cdc;              //decelerating step count
 } st4_axis_t;
 
 
@@ -126,6 +122,7 @@ extern void st4_fprint_sr2d2_tab(FILE* out);
 
 extern void st4_fprint_axis(FILE* out, uint8_t axis);
 
+extern void st4_cycle(void);
 
 #if defined(__cplusplus)
 }

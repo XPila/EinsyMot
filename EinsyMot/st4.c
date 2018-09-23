@@ -17,6 +17,10 @@ uint8_t  st4_end = 0;             // endstop enabled mask (bit 0..3 - mask)
 uint16_t st4_d2 = 0;              // timer delay [500ns]
 st4_axis_t st4_axis[ST4_NUMAXES]; // axis parameters
 
+#define _FLG_AC 0x01
+#define _FLG_RM 0x02
+#define _FLG_DC 0x04
+
 //macro shortcuts for more readable code
 #define _res(a) st4_axis[a].res
 #define _srx(a) st4_axis[a].srx.ui32
@@ -30,6 +34,11 @@ st4_axis_t st4_axis[ST4_NUMAXES]; // axis parameters
 #define _ndc(a) st4_axis[a].ndc
 #define _pos(a) st4_axis[a].pos
 #define _cnt(a) st4_axis[a].cnt
+#define _d2s(a) st4_axis[a].d2s
+#define _flg(a) st4_axis[a].flg
+#define _cac(a) st4_axis[a].cac
+#define _crm(a) st4_axis[a].crm
+#define _cdc(a) st4_axis[a].cdc
 
 char st4_axis_chr(uint8_t axis)
 {
@@ -113,17 +122,22 @@ void st4_calc_move(uint8_t axis, uint32_t n)
 	uint16_t nacdc = _nac(axis) + _ndc(axis);
 	if (n >= nacdc)
 	{
-		st4_axis[axis].mov.nac = _nac(axis);
-		st4_axis[axis].mov.nrm = n - (uint32_t)nacdc;
-		st4_axis[axis].mov.ndc = _ndc(axis);
+		_cac(axis) = _nac(axis);
+		_crm(axis) = n - (uint32_t)nacdc;
+		_cdc(axis) = _ndc(axis);
 	}
 	else
 	{
-		st4_axis[axis].mov.nac = (uint32_t)_nac(axis) * n / nacdc;
-		st4_axis[axis].mov.nrm = 0;
-		st4_axis[axis].mov.ndc = n - st4_axis[axis].mov.nac;
+		_cac(axis) = (uint32_t)_nac(axis) * n / nacdc;
+		_crm(axis) = 0;
+		_cdc(axis) = n - _cac(axis);
 	}
-//	printf_P(PSTR("st4_calc_move %d   %d %ld %d\n"), axis, st4_axis[axis].mov.nac, st4_axis[axis].mov.nrm, st4_axis[axis].mov.ndc);
+	uint8_t flg = 0;
+	if (_cac(axis)) flg |= _FLG_AC;
+	if (_crm(axis)) flg |= _FLG_RM;
+	if (_cdc(axis)) flg |= _FLG_DC;
+	_flg(axis) = flg;
+	printf_P(PSTR("st4_calc_move %d   %d %ld %d\n"), axis, _cac(axis), _crm(axis), _cdc(axis));
 }
 
 int8_t st4_mor(uint8_t axis, int32_t val)
@@ -224,76 +238,105 @@ void st4_set_pos_mm(uint8_t axis, float pos_mm)
 	_pos(axis) = (int16_t)(pos_mm * _res(axis));
 }
 
-void st4_cycle_axis0(void)
+inline uint32_t calc_dsrx(uint16_t acc, uint16_t d2)
 {
-	if (st4_axis[0].mov.nac)
+	if (d2 < 256) return ((uint32_t)(acc * st4_d2)) << 3;
+	return ((uint32_t)acc * st4_d2) << 3;
+}
+
+void st4_step_axis0(void)
+{
+	//update position counter
+	if (st4_msk & 0x10) _pos(0)--;
+	else _pos(0)++;
+	//cache flags in register
+	uint8_t register flg = _flg(0);
+	if (flg & _FLG_AC)
 	{
-		_srx(0) += ((uint32_t)_acc(0) * st4_d2) << 3;// / 8192;
-		st4_axis[0].mov.nac--;
-	}
-	else if (st4_axis[0].mov.nrm)
-	{
-		st4_axis[0].mov.nrm--;
-	}
-	else if (st4_axis[0].mov.ndc)
-	{
-		_srx(0) -= ((uint32_t)_dec(0) * st4_d2) << 3;// / 8192;
-		st4_axis[0].mov.ndc--;
-		if (st4_axis[0].mov.ndc == 0)
+		_srx(0) += calc_dsrx(_acc(0), _d2s(0));
+		_d2s(0) = 0;
+		if ((--_cac(0)) == 0)
 		{
+			flg &= ~_FLG_AC;
+		}
+	}
+	else if (flg & _FLG_RM)
+	{
+		_srxh(0) = _srm(0);
+		_srxl(0) = 0;
+		_d2s(0) = 0;
+		if ((--_crm(0)) == 0)
+		{
+			flg &= ~_FLG_RM;
+		}
+	}
+	else if (flg & _FLG_DC)
+	{
+		_srx(0) -= calc_dsrx(_dec(0), _d2s(0));
+		_d2s(0) = 0;
+		if ((--_cdc(0)) == 0)
+		{
+			flg &= ~_FLG_DC;
 			st4_msk &= ~1;
 			_srx(0) = 0;
 		}
 	}
+	//update flags
+	_flg(0) = flg;
 }
 
-void st4_cycle_axis1(void)
+void st4_step_axis1(void)
 {
-	if (st4_axis[1].mov.nac)
+	//update position counter
+	if (st4_msk & 0x20) _pos(1)--;
+	else _pos(1)++;
+	//cache flags in register
+	uint8_t register flg = _flg(1);
+	if (flg & _FLG_AC)
 	{
-		_srx(1) += ((uint32_t)_acc(1) * st4_d2) << 3;// / 8192;
-		st4_axis[1].mov.nac--;
-	}
-	else if (st4_axis[1].mov.nrm)
-	{
-		st4_axis[1].mov.nrm--;
-	}
-	else if (st4_axis[1].mov.ndc)
-	{
-		_srx(1) -= ((uint32_t)_dec(1) * st4_d2) << 3;// / 8192;
-		st4_axis[1].mov.ndc--;
-		if (st4_axis[1].mov.ndc == 0)
+		_srx(1) += calc_dsrx(_acc(1), _d2s(1));
+		_d2s(1) = 0;
+		if ((--_cac(1)) == 0)
 		{
+			flg &= ~_FLG_AC;
+		}
+	}
+	else if (flg & _FLG_RM)
+	{
+		_srxh(1) = _srm(1);
+		_srxl(1) = 0;
+		_d2s(1) = 0;
+		if ((--_crm(1)) == 0)
+		{
+			flg &= ~_FLG_RM;
+		}
+	}
+	else if (flg & _FLG_DC)
+	{
+		_srx(1) -= calc_dsrx(_dec(1), _d2s(1));
+		_d2s(1) = 0;
+		if ((--_cdc(1)) == 0)
+		{
+			flg &= ~_FLG_DC;
 			st4_msk &= ~2;
 			_srx(1) = 0;
 		}
 	}
+	//update flags
+	_flg(1) = flg;
 }
 
 #if (ST4_NUMAXES > 2)
-void st4_cycle_axis2(void)
+void st4_step_axis2(void)
 {
-	if (st4_axis[2].mov.nac)
-	{
-		_srx(2) += ((uint32_t)_acc(2) * st4_d2) << 3;// / 8192;
-		st4_axis[2].mov.nac--;
-	}
-	else if (st4_axis[2].mov.nrm)
-	{
-		st4_axis[2].mov.nrm--;
-	}
-	else if (st4_axis[2].mov.ndc)
-	{
-		_srx(2) -= ((uint32_t)_dec(2) * st4_d2) << 3;// / 8192;
-		st4_axis[2].mov.ndc--;
-		if (st4_axis[2].mov.ndc == 0)
-		{
-			st4_msk &= ~4;
-			_srx(2) = 0;
-		}
-	}
 }
 #endif //(ST4_NUMAXES > 2)
+
+#if (ST4_NUMAXES > 3)
+void st4_step_axis3(void)
+{
+}
+#endif //(ST4_NUMAXES > 3)
 
 
 void st4_setup_timer(void)
@@ -314,7 +357,8 @@ void st4_setup_timer(void)
 	TIMSK1 |= (1<<OCIE1A);
 }
 
-inline void st4_cycle(void)
+//inline 
+void st4_cycle(void)
 {
 	uint8_t axis;
 	uint8_t max_sr_axis = st4_max_sr_axis();
@@ -327,56 +371,42 @@ inline void st4_cycle(void)
 		if (em & 0x01) st4_msk &= ~0x01;
 		if (em & 0x02) st4_msk &= ~0x02;
 		st4_d2 = st4_sr2d2(max_sr);
+//		printf_P(PSTR("maxsr=%u d2=%u srx=%u sry=%u x=%li y=%li\n"), max_sr, st4_d2, _srxh(0), _srxh(1), _pos(0), _pos(1));
+//		printf_P(PSTR("maxsr=%u d2=%u srx=%u sry=%u x=%li y=%li flg=%u nac=%u nrm=%lu ndc=%u\n"), max_sr, st4_d2, _srxh(0), _srxh(1), _pos(0), _pos(1), _flg(0), _cac(0), _crm(0), _cdc(0));
 		if (st4_msk & 1)
 		{
+			_d2s(0) += st4_d2;
 			if (_cnt(0) <= _srxh(0))
 			{
 				_cnt(0) += max_sr;
+				_cnt(0) -= _srxh(0);
 				sm |= 1;
-				if (st4_msk & 0x10) _pos(0)--;
-				else _pos(0)++;
+				st4_step_axis0();
 			}
-			_cnt(0) -= _srxh(0);
-			if (sm & 1) st4_cycle_axis0();
+			else
+				_cnt(0) -= _srxh(0);
 		}
 		if (st4_msk & 2)
 		{
+			_d2s(1) += st4_d2;
 			if (_cnt(1) <= _srxh(1))
 			{
 				_cnt(1) += max_sr;
+				_cnt(1) -= _srxh(1);
 				sm |= 2;
-				if (st4_msk & 0x20) _pos(1)--;
-				else _pos(1)++;
+				st4_step_axis1();
 			}
-			_cnt(1) -= _srxh(1);
-			if (sm & 2) st4_cycle_axis1();
+			else
+				_cnt(1) -= _srxh(1);
 		}
 #if (ST4_NUMAXES > 2)
 		if (st4_msk & 4)
 		{
-			if (_cnt(2) <= _srxh(2))
-			{
-				_cnt(2) += max_sr;
-				sm |= 4;
-				if (st4_msk & 0x40) _pos(2)--;
-				else _pos(2)++;
-			}
-			_cnt(2) -= _srxh(2);
-			if (sm & 4) st4_cycle_axis2();
 		}
 #endif //(ST4_NUMAXES > 2)
 #if (ST4_NUMAXES > 3)
 		if (st4_msk & 8)
 		{
-			if (_cnt(3) <= _srxh(3))
-			{
-				_cnt(3) += max_sr;
-				sm |= 8;
-				if (st4_msk & 0x80) _pos(3)--;
-				else _pos(3)++;
-			}
-			_cnt(3) -= _srxh(3);
-			//if (sm & 8) st4_cycle_axis3();
 		}
 #endif //(ST4_NUMAXES > 3)
 		ST4_DO_STEP(sm);

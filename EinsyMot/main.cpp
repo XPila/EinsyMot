@@ -86,6 +86,7 @@ void setup(void)
 //main loop
 void loop(void)
 {
+//	st4_cycle();
 	cmd_process();
 }
 
