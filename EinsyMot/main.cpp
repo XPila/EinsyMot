@@ -70,10 +70,41 @@ void setup(void)
 	tmc2130_set_cur(2, 30);
 	tmc2130_set_cur(3, 30);
 
-	st4_setup_axis(0, 100, 5,  70, 200, 400); //res=100ustep/mm, sr0=5mm/s, srm=50mm/s, acc=50mm/s^2, dec=50mm/s^2
-	st4_setup_axis(1, 100, 5,  70, 200, 400); //res=100ustep/mm, sr0=5mm/s, srm=50mm/s, acc=50mm/s^2, dec=50mm/s^2
-	st4_setup_axis(2, 400, 1,  15, 50, 100); //res=400ustep/mm, sr0=1mm/s, srm=10mm/s, acc=10mm/s^2, dec=10mm/s^2
-	st4_setup_axis(3, 280, 1,  10, 10, 10); //res=400ustep/mm, sr0=1mm/s, srm=10mm/s, acc=10mm/s^2, dec=10mm/s^2
+	st4_setup_axis(0, 100, 5,  70, 200, 400); //res=100ustep/mm, sr0=5mm/s, srm=70mm/s, acc=200mm/s^2, dec=400mm/s^2
+	st4_setup_axis(1, 100, 5,  70, 200, 400); //res=100ustep/mm, sr0=5mm/s, srm=70mm/s, acc=200mm/s^2, dec=400mm/s^2
+	st4_setup_axis(2, 400, 1,  15, 50, 100);  //res=400ustep/mm, sr0=1mm/s, srm=15mm/s, acc=50mm/s^2,  dec=100mm/s^2
+	st4_setup_axis(3, 280, 1,  10, 10, 10);   //res=280ustep/mm, sr0=1mm/s, srm=10mm/s, acc=10mm/s^2,  dec=10mm/s^2
+
+#if 1
+	st4_setup_axis(4, 100, 5, 70, 200, 200); //res=400ustep/mm, sr0=1mm/s, srm=10mm/s, acc=10mm/s^2, dec=10mm/s^2
+
+
+	uint16_t dx = 3000;
+	uint16_t dy = 3000;
+	uint16_t dz = 3000;
+	uint32_t dd = ((uint32_t)dx * dx) + ((uint32_t)dy * dy) + ((uint32_t)dz * dz);
+	uint16_t d = sqrt(dd);
+
+	st4_axis[0].srx.ui16.h = dx;
+	st4_axis[0].cnt = 0;
+	st4_axis[1].srx.ui16.h = dy;
+	st4_axis[1].cnt = 0;
+	st4_axis[2].srx.ui16.h = dz;
+	st4_axis[2].cnt = 0;
+
+	st4_axis[4].cnt = d;
+	st4_axis[4].srx.ui16.l = 0;
+	st4_axis[4].srx.ui16.h = st4_axis[4].sr0;
+	st4_axis[4].cac = st4_axis[4].nac;
+	st4_axis[4].cdc = st4_axis[4].ndc;
+	st4_axis[4].crm = d - (st4_axis[4].cac + st4_axis[4].cdc);
+	st4_axis[4].flg = 0x0f;
+
+	st4_msk = 0x03;
+#endif
+
+	einsy_tmc_set_ena(0x07);
+	_delay_ms(50);
 
 	st4_setup_timer();
 
@@ -86,7 +117,7 @@ void setup(void)
 //main loop
 void loop(void)
 {
-//	st4_cycle();
+	st4_cycle();
 	cmd_process();
 }
 

@@ -20,9 +20,10 @@
 #define ST4_MSK_XYZE     15    // xyze-axis mask
 
 // flag definitions
-#define ST4_FLG_MOT         1  // motion flag
-#define ST4_FLG_ACC         2  // accelerating flag
-#define ST4_FLG_DEC         4  // decelerating flag
+#define ST4_FLG_MO     0x01
+#define ST4_FLG_AC     0x02
+#define ST4_FLG_RM     0x04
+#define ST4_FLG_DC     0x08
 
 //steprate thresholds [steps/s] for optimized delay calculation
 #define ST4_THR_SR0      32
@@ -58,12 +59,11 @@ typedef struct
 	uint16_t ndc;              //number of decelerating steps (srm->sr0)
 	u32u16_t srx;              //current steprate [steps/65536*s]
 	int32_t  pos;              //current position [steps]
-//	uint8_t  flg;              //flags (bit 0 - motion, bit1 - accel, bit2 - decel, bit4 - min endstop, bit5 - max endstop)
+	uint8_t  flg;              //flags (bit 0 - motion, bit1 - accel, bit2 - decel, bit4 - min end, bit5 - max end)
 	uint16_t cnt;              //counter
 	uint16_t d2s;              //d2 sum
-	uint8_t  flg;              //flags (bit0 - accel, bit1 - run, bit2 - decel)
 	uint16_t cac;              //accelerating step count
-	uint32_t crm;              //running step count
+	uint32_t crm;              //running (srm) step count
 	uint16_t cdc;              //decelerating step count
 } st4_axis_t;
 
@@ -74,11 +74,11 @@ extern "C" {
 #endif //defined(__cplusplus)
 
 
-extern uint8_t  st4_msk;                 // motion and direction mask (bit 0..3 - motion, bit 4..7 - dir)
-extern uint8_t  st4_end;                 // endstop enabled mask (bit 0..3 - mask)
-extern uint16_t st4_d2;                  // timer delay [500ns]
-extern st4_axis_t st4_axis[ST4_NUMAXES]; // axis parameters
-//extern st4_move_t st4_move*;           // axis parameters
+extern uint8_t  st4_msk;                       // motion and direction mask (bit 0..3 - motion, bit 4..7 - dir)
+extern uint8_t  st4_end;                       // endstop enabled mask (bit 0..3 - mask)
+extern uint16_t st4_d2;                        // timer delay [500ns]
+extern st4_axis_t st4_axis[ST4_NUMAXES+1];     // XYZE axis parameters, last axis is for interpolated moves
+
 
 extern uint8_t st4_max_sr_axis(void);
 

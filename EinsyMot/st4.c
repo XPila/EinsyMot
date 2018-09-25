@@ -12,14 +12,12 @@ extern void ST4_SET_DIR(uint8_t mask);
 extern void ST4_DO_STEP(uint8_t mask);
 
 //global variables
-uint8_t  st4_msk = 0;             // motion and direction mask (bit 0..3 - motion, bit 4..7 - dir)
-uint8_t  st4_end = 0;             // endstop enabled mask (bit 0..3 - mask)
-uint16_t st4_d2 = 0;              // timer delay [500ns]
-st4_axis_t st4_axis[ST4_NUMAXES]; // axis parameters
-
-#define _FLG_AC 0x01
-#define _FLG_RM 0x02
-#define _FLG_DC 0x04
+uint8_t  st4_msk = 0;                  // motion and direction mask (bit 0..3 - motion, bit 4..7 - dir)
+uint8_t  st4_end = 0;                  // endstop enabled mask (bit 0..3 - mask)
+uint8_t  st4_max = 0;                  // max steprate axis (0xff for interpolated moves)
+uint16_t st4_msr = 0;                  // max steprate or diagonal steprate for interpolated moves
+uint16_t st4_d2 = 0;                   // timer delay [500ns]
+st4_axis_t st4_axis[ST4_NUMAXES+1];    // axis parameters
 
 //macro shortcuts for more readable code
 #define _res(a) st4_axis[a].res
@@ -133,9 +131,9 @@ void st4_calc_move(uint8_t axis, uint32_t n)
 		_cdc(axis) = n - _cac(axis);
 	}
 	uint8_t flg = 0;
-	if (_cac(axis)) flg |= _FLG_AC;
-	if (_crm(axis)) flg |= _FLG_RM;
-	if (_cdc(axis)) flg |= _FLG_DC;
+	if (_cac(axis)) flg |= ST4_FLG_AC;
+	if (_crm(axis)) flg |= ST4_FLG_RM;
+	if (_cdc(axis)) flg |= ST4_FLG_DC;
 	_flg(axis) = flg;
 	printf_P(PSTR("st4_calc_move %d   %d %ld %d\n"), axis, _cac(axis), _crm(axis), _cdc(axis));
 }
@@ -244,177 +242,211 @@ inline uint32_t calc_dsrx(uint16_t acc, uint16_t d2)
 	return ((uint32_t)acc * st4_d2) << 3;
 }
 
-void st4_step_axis0(void)
+inline void st4_step_axis_indep(uint8_t axis, uint8_t mask)
 {
 	//update position counter
-	if (st4_msk & 0x10) _pos(0)--;
-	else _pos(0)++;
+	if (st4_msk & (mask << 4)) _pos(axis)--;
+	else _pos(axis)++;
 	//cache flags in register
-	uint8_t register flg = _flg(0);
-	if (flg & _FLG_AC)
+	uint8_t register flg = _flg(axis);
+	if (flg & ST4_FLG_AC)
 	{
-		_srx(0) += calc_dsrx(_acc(0), _d2s(0));
-		_d2s(0) = 0;
-		if ((--_cac(0)) == 0)
+		_srx(axis) += calc_dsrx(_acc(axis), _d2s(axis));
+		if ((--_cac(axis)) == 0)
 		{
-			flg &= ~_FLG_AC;
+			flg &= ~ST4_FLG_AC;
+			if (flg & ST4_FLG_RM)
+			{
+				_srxh(axis) = _srm(axis);
+				_srxl(axis) = 0;
+			}
 		}
 	}
-	else if (flg & _FLG_RM)
+	else if (flg & ST4_FLG_RM)
 	{
-		_srxh(0) = _srm(0);
-		_srxl(0) = 0;
-		_d2s(0) = 0;
-		if ((--_crm(0)) == 0)
+		if ((--_crm(axis)) == 0)
 		{
-			flg &= ~_FLG_RM;
+			flg &= ~ST4_FLG_RM;
 		}
 	}
-	else if (flg & _FLG_DC)
+	else if (flg & ST4_FLG_DC)
 	{
-		_srx(0) -= calc_dsrx(_dec(0), _d2s(0));
-		_d2s(0) = 0;
-		if ((--_cdc(0)) == 0)
+		_srx(axis) -= calc_dsrx(_dec(axis), _d2s(axis));
+		if ((--_cdc(axis)) == 0)
 		{
-			flg &= ~_FLG_DC;
-			st4_msk &= ~1;
-			_srx(0) = 0;
+			flg &= ~ST4_FLG_DC;
+			st4_msk &= ~mask;
+			_srx(axis) = 0;
 		}
 	}
 	//update flags
-	_flg(0) = flg;
+	_flg(axis) = flg;
 }
 
-void st4_step_axis1(void)
+inline uint8_t st4_cycle_axis_indep(uint8_t axis, uint8_t mask)
 {
-	//update position counter
-	if (st4_msk & 0x20) _pos(1)--;
-	else _pos(1)++;
+	_d2s(axis) += st4_d2;
+	if (_cnt(axis) <= _srxh(axis))
+	{
+		_cnt(axis) += st4_msr;
+		_cnt(axis) -= _srxh(axis);
+		st4_step_axis_indep(axis, mask);
+		_d2s(axis) = 0;
+		return mask;
+	}
+	_cnt(axis) -= _srxh(axis);
+	return 0;
+}
+
+#define M (ST4_NUMAXES)
+
+inline uint8_t st4_cycle_axis_intpol(uint8_t axis, uint8_t mask)
+{
+	if (_cnt(axis) <= _srxh(axis))
+	{
+		_cnt(axis) += _cnt(M);
+		_cnt(axis) -= _srxh(axis);
+		//update position counter
+//		if (st4_msk & (mask << 4)) _pos(axis)--;
+//		else _pos(axis)++;
+		return mask;
+	}
+	_cnt(axis) -= _srxh(axis);
+	return 0;
+}
+
+inline void st4_step_intpol(void)
+{
 	//cache flags in register
-	uint8_t register flg = _flg(1);
-	if (flg & _FLG_AC)
+	uint8_t register flg = _flg(M);
+	if (flg & ST4_FLG_AC)
 	{
-		_srx(1) += calc_dsrx(_acc(1), _d2s(1));
-		_d2s(1) = 0;
-		if ((--_cac(1)) == 0)
+		_srx(M) += calc_dsrx(_acc(M), st4_d2);
+		if ((--_cac(M)) == 0)
 		{
-			flg &= ~_FLG_AC;
+			flg &= ~ST4_FLG_AC;
+			if (flg & ST4_FLG_RM)
+			{
+				_srxh(M) = _srm(M);
+				_srxl(M) = 0;
+			}
 		}
 	}
-	else if (flg & _FLG_RM)
+	else if (flg & ST4_FLG_RM)
 	{
-		_srxh(1) = _srm(1);
-		_srxl(1) = 0;
-		_d2s(1) = 0;
-		if ((--_crm(1)) == 0)
+		if ((--_crm(M)) == 0)
 		{
-			flg &= ~_FLG_RM;
+			flg &= ~ST4_FLG_RM;
 		}
 	}
-	else if (flg & _FLG_DC)
+	else if (flg & ST4_FLG_DC)
 	{
-		_srx(1) -= calc_dsrx(_dec(1), _d2s(1));
-		_d2s(1) = 0;
-		if ((--_cdc(1)) == 0)
+		_srx(M) -= calc_dsrx(_dec(M), st4_d2);
+		if ((--_cdc(M)) == 0)
 		{
-			flg &= ~_FLG_DC;
-			st4_msk &= ~2;
-			_srx(1) = 0;
+			flg &= ~ST4_FLG_DC;
+			st4_msk &= ~0x0f;
+			_srx(M) = 0;
 		}
 	}
 	//update flags
-	_flg(1) = flg;
+	_flg(M) = flg;
 }
 
-#if (ST4_NUMAXES > 2)
-void st4_step_axis2(void)
-{
-}
-#endif //(ST4_NUMAXES > 2)
+#undef M
 
-#if (ST4_NUMAXES > 3)
-void st4_step_axis3(void)
+inline void st4_cycle_indep(void)
 {
-}
-#endif //(ST4_NUMAXES > 3)
-
-
-void st4_setup_timer(void)
-{
-	// waveform generation = 0100 = CTC
-	TCCR1B &= ~(1<<WGM13);
-	TCCR1B |=  (1<<WGM12);
-	TCCR1A &= ~(1<<WGM11);
-	TCCR1A &= ~(1<<WGM10);
-	// output mode = 00 (disconnected)
-	TCCR1A &= ~(3<<COM1A0);
-	TCCR1A &= ~(3<<COM1B0);
-  // Set the timer pre-scaler
-	TCCR1B = (TCCR1B & ~(0x07<<CS10)) | (2<<CS10);
-	// Plan the first interrupt after 8ms from now.
-	OCR1A = 0x200;
 	TCNT1 = 0;
-	TIMSK1 |= (1<<OCIE1A);
-}
-
-//inline 
-void st4_cycle(void)
-{
 	uint8_t axis;
-	uint8_t max_sr_axis = st4_max_sr_axis();
-	uint16_t max_sr = _srxh(max_sr_axis);
+	st4_max = st4_max_sr_axis();
+	st4_msr = _srxh(st4_max);
+	uint16_t tim0 = TCNT1;
 	uint8_t sm = 0;
 	uint8_t em = 0;
-	if (max_sr)
+	uint16_t tim1;
+	if (st4_msr)
 	{
-		em = ST4_GET_END() & st4_end;
-		if (em & 0x01) st4_msk &= ~0x01;
-		if (em & 0x02) st4_msk &= ~0x02;
-		st4_d2 = st4_sr2d2(max_sr);
-//		printf_P(PSTR("maxsr=%u d2=%u srx=%u sry=%u x=%li y=%li\n"), max_sr, st4_d2, _srxh(0), _srxh(1), _pos(0), _pos(1));
-//		printf_P(PSTR("maxsr=%u d2=%u srx=%u sry=%u x=%li y=%li flg=%u nac=%u nrm=%lu ndc=%u\n"), max_sr, st4_d2, _srxh(0), _srxh(1), _pos(0), _pos(1), _flg(0), _cac(0), _crm(0), _cdc(0));
-		if (st4_msk & 1)
-		{
-			_d2s(0) += st4_d2;
-			if (_cnt(0) <= _srxh(0))
-			{
-				_cnt(0) += max_sr;
-				_cnt(0) -= _srxh(0);
-				sm |= 1;
-				st4_step_axis0();
-			}
-			else
-				_cnt(0) -= _srxh(0);
-		}
-		if (st4_msk & 2)
-		{
-			_d2s(1) += st4_d2;
-			if (_cnt(1) <= _srxh(1))
-			{
-				_cnt(1) += max_sr;
-				_cnt(1) -= _srxh(1);
-				sm |= 2;
-				st4_step_axis1();
-			}
-			else
-				_cnt(1) -= _srxh(1);
-		}
+//		em = ST4_GET_END() & st4_end;
+//		if (em & 0x01) st4_msk &= ~0x01;
+//		if (em & 0x02) st4_msk &= ~0x02;
+		st4_d2 = st4_sr2d2(st4_msr);
+		tim1 = TCNT1;
+//		printf_P(PSTR("maxsr=%u d2=%u srx=%u sry=%u x=%li y=%li\n"), st4_msr, st4_d2, _srxh(0), _srxh(1), _pos(0), _pos(1));
+//		printf_P(PSTR("maxsr=%u d2=%u srx=%u sry=%u x=%li y=%li flg=%u nac=%u nrm=%lu ndc=%u\n"), st4_msr, st4_d2, _srxh(0), _srxh(1), _pos(0), _pos(1), _flg(0), _cac(0), _crm(0), _cdc(0));
+		if (st4_msk & 0x01)
+			sm |= st4_cycle_axis_indep(0, 0x01);
+#if (ST4_NUMAXES > 1)
+		if (st4_msk & 0x02)
+			sm |= st4_cycle_axis_indep(1, 0x02);
+#endif //(ST4_NUMAXES > 1)
 #if (ST4_NUMAXES > 2)
-		if (st4_msk & 4)
-		{
-		}
+		if (st4_msk & 0x04)
+			sm |= st4_cycle_axis_indep(2, 0x04);
 #endif //(ST4_NUMAXES > 2)
 #if (ST4_NUMAXES > 3)
-		if (st4_msk & 8)
-		{
-		}
+		if (st4_msk & 0x08)
+			sm |= st4_cycle_axis_indep(3, 0x08);
 #endif //(ST4_NUMAXES > 3)
 		ST4_DO_STEP(sm);
 	}
 	else
 		st4_d2 = 2000;
 	OCR1A = st4_d2;
+	uint16_t tim2 = TCNT1;
+//	if (st4_msk & 0x0f)
+//		printf_P(PSTR("tim0=%u tim1=%u tim2=%u\n"), tim0, tim1, tim2);
 }
+
+inline void st4_cycle_intpol(void)
+{
+	TCNT1 = 0;
+	uint8_t axis;
+	st4_msr = _srxh(4);
+	uint16_t tim0 = TCNT1;
+	uint8_t sm = 0;
+	uint8_t em = 0;
+	uint16_t tim1;
+	if (st4_msr)
+	{
+//		em = ST4_GET_END() & st4_end;
+//		if (em & 0x01) st4_msk &= ~0x01;
+//		if (em & 0x02) st4_msk &= ~0x02;
+//		printf_P(PSTR("sr=%u d2=%u x=%li y=%li flg=%u nac=%u nrm=%lu ndc=%u\n"), st4_msr, st4_d2, _pos(0), _pos(1), _flg(4), _cac(4), _crm(4), _cdc(4));
+		st4_d2 = st4_sr2d2(st4_msr);
+		tim1 = TCNT1;
+		if (st4_msk & 0x01)
+			sm |= st4_cycle_axis_intpol(0, 0x01);
+#if (ST4_NUMAXES > 1)
+		if (st4_msk & 0x02)
+			sm |= st4_cycle_axis_intpol(1, 0x02);
+#endif //(ST4_NUMAXES > 1)
+#if (ST4_NUMAXES > 2)
+		if (st4_msk & 0x04)
+			sm |= st4_cycle_axis_intpol(2, 0x04);
+#endif //(ST4_NUMAXES > 2)
+#if (ST4_NUMAXES > 3)
+		if (st4_msk & 0x08)
+			sm |= st4_cycle_axis_intpol(3, 0x08);
+#endif //(ST4_NUMAXES > 3)
+		st4_step_intpol();
+		ST4_DO_STEP(sm);
+	}
+	else
+		st4_d2 = 2000;
+	OCR1A = st4_d2;
+	uint16_t tim2 = TCNT1;
+//	if (st4_msk & 0x0f)
+//		printf_P(PSTR("sr=%u d2=%u tim0=%u tim1=%u tim2=%u cpu=%u\n"), st4_msr, st4_d2, tim0, tim1, tim2, 100*tim2/st4_d2);
+}
+
+void st4_cycle(void)
+{
+//	st4_cycle_indep();
+//	st4_cycle_intpol();
+}
+
+
 
 
 //look up table for calculating delay (3 segments, 128 values)
@@ -534,7 +566,32 @@ void st4_fprint_axis(FILE* out, uint8_t axis)
 	fprintf_P(out, PSTR(" dec=%8.0f [mm/s^2]\n"), st4_get_dec_mms2(axis));
 }
 
+
+#if (ST4_TIMER == 1)
+
+void st4_setup_timer(void)
+{
+	// waveform generation = 0100 = CTC
+	TCCR1B &= ~(1<<WGM13);
+	TCCR1B |=  (1<<WGM12);
+	TCCR1A &= ~(1<<WGM11);
+	TCCR1A &= ~(1<<WGM10);
+	// output mode = 00 (disconnected)
+	TCCR1A &= ~(3<<COM1A0);
+	TCCR1A &= ~(3<<COM1B0);
+  // Set the timer pre-scaler
+	TCCR1B = (TCCR1B & ~(0x07<<CS10)) | (2<<CS10);
+	// Plan the first interrupt after 8ms from now.
+	OCR1A = 0x200;
+	TCNT1 = 0;
+	TIMSK1 |= (1<<OCIE1A);
+}
+
 ISR(TIMER1_COMPA_vect)
 {
-	st4_cycle();
+//	st4_cycle_indep();
+	st4_cycle_intpol();
 }
+
+#endif //(ST4_TIMER == 1)
+
