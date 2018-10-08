@@ -114,6 +114,8 @@ extern void st4_setup_timer(void);
 
 extern uint16_t st4_sr2d2(uint16_t sr);
 
+extern void st4_gen_seg(uint16_t sr0, uint8_t sh, uint8_t* pseg);
+
 extern void st4_gen_tab(void);
 
 extern void st4_fprint_sr_d2(FILE* out, uint16_t sr0, uint16_t sr1);
