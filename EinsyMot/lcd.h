@@ -47,11 +47,15 @@ extern void lcd_chr(uint8_t chr, uint8_t wait);
 extern int lcd_put(uint8_t c);
 
 #ifdef LCD_KNOB
+extern uint8_t lcd_btn;
+extern uint8_t lcd_sample_btn(void);
+#ifdef LCD_IBUF
 extern int lcd_get(void);
+#endif //LCD_IBUF
 #endif //LCD_KNOB
 
 #ifdef LCD_OBUF
-extern void lcd_100us(void);
+extern void lcd_cycle(void);
 #endif //LCD_OBUF
 
 #define ESC_2J     "\x1b[2J"

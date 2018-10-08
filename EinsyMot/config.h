@@ -23,7 +23,7 @@
 //LCD configuration
 #define LCD_4BIT        // 4bit mode
 #define LCD_KNOB        // lcd knob input
-//#define LCD_IBUF    8   // input buffer size (for knob data input)
+#define LCD_IBUF   16   // input buffer size (for knob data input)
 #define LCD_OBUF   64   // output buffer size (for lcd data output)
 #define LCD_INBL        // input non blocking mode
 //#define LCD_ONBL        // output non blocking mode

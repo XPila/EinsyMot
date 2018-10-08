@@ -128,6 +128,11 @@ void loop(void)
 {
 //	st4_cycle();
 	cmd_process();
+	int key = lcd_get();
+	if (key > 0)
+	{
+		fputc(key, cmd_err);
+	}
 #if 0
 	if (einsy_tmc_get_ena())
 	if (((st4_msk & 0x0f) == 0) || (millis() > 6000))
@@ -150,5 +155,5 @@ void setup_osc(void)
 // Timer 0 is shared with millies
 ISR(TIMER0_COMPB_vect)
 {
-	lcd_100us(); //slower lcd (full screen ~64ms)
+	lcd_cycle(); //slower lcd (full screen ~64ms)
 }

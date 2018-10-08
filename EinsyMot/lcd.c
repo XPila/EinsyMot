@@ -24,10 +24,12 @@ int lcd_putchar(char c, FILE *stream)
 {
 	return lcd_put(c);
 }
+#ifdef LCD_IBUF
 int lcd_getchar(FILE *stream)
 {
 	return lcd_get();
 }
+#endif //LCD_IBUF
 #endif //LCD_FILE
 
 #ifdef LCD_ESCC
@@ -119,7 +121,11 @@ void lcd_init(void)
 	lcd_cmd(LCD_CMD_ENTRYMODESET | LCD_FLG_ENTRYSHIFTINC, 1);
 	lcd_cmd(LCD_CMD_DISPLAYCONTROL | LCD_FLG_DISPLAYON, 1);
 #ifdef LCD_FILE
+#ifdef LCD_IBUF
 	fdev_setup_stream(lcdio, lcd_putchar, lcd_getchar, _FDEV_SETUP_WRITE | _FDEV_SETUP_READ); //setup lcd i/o stream
+#else //LCD_IBUF
+	fdev_setup_stream(lcdio, lcd_putchar, 0, _FDEV_SETUP_WRITE); //setup lcd i/o stream
+#endif //LCD_IBUF
 #endif //LCD_FILE
 #ifdef LCD_KNOB
 	DDR(LCD_PIN_BTN_EN1) &= ~__MSK(LCD_PIN_BTN_EN1);
@@ -368,7 +374,9 @@ int lcd_put(uint8_t c)
 }
 
 #ifdef LCD_KNOB
-int lcd_get(void)
+uint8_t lcd_btn = 0;
+uint8_t lcd_cnt = 0;
+uint8_t lcd_sample_btn(void)
 {
 //	return lcd_test;
 	uint8_t btn = 0;
@@ -377,11 +385,39 @@ int lcd_get(void)
 	if ((PIN(LCD_PIN_BTN_ENC) & __MSK(LCD_PIN_BTN_ENC)) == 0) btn |= 4;
 	return btn;
 }
+#ifdef LCD_IBUF
+int lcd_get(void)
+{
+	return rbuf_get(lcd_ibuf);
+}
+#endif //LCD_IBUF
 #endif //LCD_KNOB
 
 #ifdef LCD_OBUF
-void lcd_100us(void)
+void lcd_cycle(void)
 {
+#ifdef LCD_KNOB
+	if (lcd_cnt)
+		lcd_cnt--;
+	else
+	{
+		lcd_cnt = 10;
+		uint8_t btn = lcd_sample_btn();
+#ifdef LCD_IBUF
+		uint8_t change = (btn ^ lcd_btn);
+		if (change & btn & 0x04)
+			rbuf_put(lcd_ibuf, '\n');
+		else if ((change & 0x03) != 0x03)
+		{
+			if ((change & btn & 0x01) && (btn & 0x02))
+				rbuf_put(lcd_ibuf, '+');
+			if ((change & btn & 0x02) && (btn & 0x01))
+				rbuf_put(lcd_ibuf, '-');
+		}
+#endif //LCD_IBUF
+		lcd_btn = btn;
+	}
+#endif //LCD_KNOB
 	if (_wait_counter)
 	{
 		_wait_counter--;
