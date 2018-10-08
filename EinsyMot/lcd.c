@@ -31,6 +31,8 @@ int lcd_getchar(FILE *stream)
 #endif //LCD_FILE
 
 #ifdef LCD_ESCC
+	uint8_t _numlines;
+	uint8_t _currline;
 	uint8_t _escape[8];
 #endif //LCD_ESCC
 
@@ -147,6 +149,9 @@ void lcd_init(void)
 	_row_addr[2] = 0x14;
 	_row_addr[3] = 0x54;
 
+	_numlines = 4;
+	_currline = 0;
+
 	_escape[0] = 0;
 }
 
@@ -170,11 +175,14 @@ void lcd_cmd(uint8_t cmd, uint8_t wait)
 void lcd_erase_screen(uint8_t wait)
 {
 	lcd_cmd(LCD_CMD_CLEARDISPLAY, wait);
+	_currline = 0;
 }
 
 void lcd_cursor_home(uint8_t c, uint8_t r, uint8_t wait)
 {
+	if (r >= _numlines) r = _numlines - 1;
 	uint8_t addr = (_row_addr[r] + c) & 0x7f;
+	_currline = r;
 	lcd_cmd(LCD_CMD_SETDDRAMADDR | addr, wait);
 }
 
@@ -327,6 +335,12 @@ void lcd_esc(uint8_t chr, uint8_t wait)
 
 void lcd_chr(uint8_t chr, uint8_t wait)
 {
+	if (chr == '\n')
+	{
+		if (_currline > _numlines) _currline = -1;
+		lcd_cursor_home(0, _currline + 1, wait); // LF
+		return 1;
+	}
 	if (_escape[0] || (chr == 0x1b))
 	{
 		lcd_esc(chr, wait);
