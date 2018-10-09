@@ -171,6 +171,17 @@ void tmc2130_set_sgt(uint8_t axis, int8_t sgt)
 	tmc2130_wr(axis, TMC2130_REG_COOLCONF, (((uint32_t)__sg_thr(axis)) << 16));
 }
 
+uint16_t tmc2130_get_cst(uint8_t axis)
+{
+	return __tcoolthrs(axis);
+}
+
+void tmc2130_set_cst(uint8_t axis, uint16_t cst)
+{
+	__tcoolthrs(axis) = cst;
+	tmc2130_wr(axis, TMC2130_REG_TCOOLTHRS, __tcoolthrs(axis));
+}
+
 
 //spi
 #define TMC2130_SPI_ENTER()    spi_setup(TMC2130_SPCR, TMC2130_SPSR)

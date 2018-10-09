@@ -25,6 +25,10 @@ extern int8_t tmc2130_get_sgt(uint8_t axis);
 
 extern void tmc2130_set_sgt(uint8_t axis, int8_t sgt);
 
+extern uint16_t tmc2130_get_cst(uint8_t axis);
+
+extern void tmc2130_set_cst(uint8_t axis, uint16_t cst);
+
 
 #if defined(__cplusplus)
 }

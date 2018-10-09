@@ -54,6 +54,7 @@
 
 //--------------------------------------
 //TMC2130 - Trinamic stepper driver
+#define TMC2130_NUMAXES    4
 //chipselect control
 #define TMC2130_CS_LOW     einsy_tmc_cs_low
 #define TMC2130_CS_HIGH    einsy_tmc_cs_high
