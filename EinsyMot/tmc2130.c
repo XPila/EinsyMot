@@ -73,7 +73,7 @@ typedef struct
 
 
 //axis parameters
-tmc2130_axis_t tmc2130_axis[4];
+tmc2130_axis_t tmc2130_axis[TMC2130_NUMAXES];
 
 
 //shortcut macros
@@ -83,7 +83,7 @@ tmc2130_axis_t tmc2130_axis[4];
 #define __sg_thr(axis)    tmc2130_axis[axis].sg_thr
 #define __tcoolthrs(axis) tmc2130_axis[axis].tcoolthrs
 
-	
+
 uint8_t tmc2130_usteps2mres(uint16_t usteps)
 {
 	uint8_t mres = 8; while (mres && (usteps >>= 1)) mres--;
@@ -104,14 +104,13 @@ int8_t tmc2130_init_axis(uint8_t axis)
 	uint8_t vsense = 1; // high sensitivity (1/2 current)
 	uint32_t chopconf = _CHOPCONF(toff, hstrt, hend, fd3, 0, rndtf, chm, tbl, vsense, 0, 0, 0, mres, intpol, 0, 0);
 	__chopconf(axis)  = chopconf;
-	__ihold(axis)     = 16;
-	__irun(axis)      = 16;
-	__sg_thr(axis)    = 3;
-	__tcoolthrs(axis) = 1500;
+	__ihold(axis)     = TMC2130_DEF_CUR;
+	__irun(axis)      = TMC2130_DEF_CUR;
+	__sg_thr(axis)    = TMC2130_DEF_SGT;
+	__tcoolthrs(axis) = TMC2130_DEF_CST;
 	tmc2130_wr(axis, TMC2130_REG_CHOPCONF, __chopconf(axis));
 	tmc2130_rd(axis, TMC2130_REG_CHOPCONF, &chopconf);
-//	printf_P(PSTR("tmc2130_init_axis CHOPCONF wr=0x%08lx rd=0x%08lx %S\n"), tmc2130_axis[axis].chopconf, chopconf, \
-//		(tmc2130_axis[axis].chopconf == chopconf)?PSTR("OK"):PSTR("NG!"));
+//	printf_P(PSTR("tmc2130_wr_CHOPCONF out=0x%08lx in=0x%08lx\n"), tmc2130_axis[axis].chopconf, valr);
 	if (__chopconf(axis) != chopconf) return -1;
 	tmc2130_wr(axis, TMC2130_REG_TPOWERDOWN, 0x00000000);
 	tmc2130_wr(axis, TMC2130_REG_COOLCONF, (((uint32_t)__sg_thr(axis)) << 16));
@@ -124,9 +123,15 @@ int8_t tmc2130_init(void)
 {
 	uint8_t ret = 0;
 	if (tmc2130_init_axis(0) < 0) ret |= 0x01;
+#if (TMC2130_NUMAXES > 1)
 	if (tmc2130_init_axis(1) < 0) ret |= 0x02;
+#endif //(TMC2130_NUMAXES > 1)
+#if (TMC2130_NUMAXES > 2)
 	if (tmc2130_init_axis(2) < 0) ret |= 0x04;
+#endif //(TMC2130_NUMAXES > 2)
+#if (TMC2130_NUMAXES > 3)
 	if (tmc2130_init_axis(3) < 0) ret |= 0x08;
+#endif //(TMC2130_NUMAXES > 3)
 	if (ret) ret |= 0x80;
 	return (int8_t)ret;
 }
