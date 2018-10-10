@@ -67,6 +67,7 @@
 #define TMC2130_DEF_SGT    3  // default stallguard threshold
 #define TMC2130_DEF_CST    1500 //default coolstep threshold
 
+
 //--------------------------------------
 //ST4 - stepper motion control
 #define ST4_TIMER      1

@@ -70,6 +70,11 @@ void setup(void)
 	tmc2130_set_cur(2, 30);
 	tmc2130_set_cur(3, 30);
 
+	tmc2130_set_sgt(0, 8);
+	tmc2130_set_sgt(1, 8);
+	tmc2130_set_sgt(2, 8);
+	tmc2130_set_sgt(3, 8);
+
 	st4_setup_axis(0, 100, 10,  200, 650, 650); //res=100ustep/mm, sr0=5mm/s, srm=70mm/s, acc=200mm/s^2, dec=400mm/s^2
 	st4_setup_axis(1, 100, 10,  200, 650, 650); //res=100ustep/mm, sr0=5mm/s, srm=70mm/s, acc=200mm/s^2, dec=400mm/s^2
 	st4_setup_axis(2, 400, 2,  40, 100, 100);  //res=400ustep/mm, sr0=1mm/s, srm=15mm/s, acc=50mm/s^2,  dec=100mm/s^2
@@ -133,6 +138,16 @@ void loop(void)
 	{
 		fputc(key, cmd_err);
 	}
+#if 0
+	if (st4_msk & 1)
+	{
+		uint16_t sg = tmc2130_read_sg(0);
+		uint16_t srxh = st4_axis[0].srx.ui16.h;
+		uint16_t diag = einsy_tmc_get_diag();
+		uint32_t ms = millis();
+		fprintf_P(uart_com, PSTR("sgX=%5d diag=%d millis=%ld srxh=%u\n"), sg, diag, ms, srxh);
+	}
+#endif
 #if 0
 	if (einsy_tmc_get_ena())
 	if (((st4_msk & 0x0f) == 0) || (millis() > 6000))

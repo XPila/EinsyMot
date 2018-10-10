@@ -132,7 +132,7 @@ void einsy_tmc_set_dir(uint8_t mask)
 
 uint8_t einsy_tmc_get_diag(void)
 {
-	uint8_t mask = (PORTK & 0xcc);
+	uint8_t mask = (PINK & 0xcc);
 	if (mask & 0x04) mask |= 0x01;
 	if (mask & 0x80) mask |= 0x02;
 	if (mask & 0x40) mask |= 0x04;
