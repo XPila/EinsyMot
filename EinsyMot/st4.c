@@ -11,6 +11,26 @@ extern void ST4_SET_DIR(uint8_t mask);
 //do step function (defined in config.h)
 extern void ST4_DO_STEP(uint8_t mask);
 
+#if (ST4_TIMER == 1)
+#define OCRnA OCR1A
+#define TCNTn TCNT1
+#define TCCRnA TCCR1A
+#define TCCRnB TCCR1B
+#define TIMSKn TIMSK1
+#define OCIEnA OCIE1A
+#define COMnA0 COM1A0
+#define COMnB0 COM1B0
+#elif (ST4_TIMER == 3)
+#define OCRnA OCR3A
+#define TCNTn TCNT3
+#define TCCRnA TCCR3A
+#define TCCRnB TCCR3B
+#define TIMSKn TIMSK3
+#define OCIEnA OCIE3A
+#define COMnA0 COM3A0
+#define COMnB0 COM3B0
+#endif
+
 //global variables
 uint8_t  st4_msk = 0;                  // motion and direction mask (bit 0..3 - motion, bit 4..7 - dir)
 uint8_t  st4_end = 0;                  // endstop enabled mask (bit 0..3 - mask)
@@ -67,37 +87,61 @@ uint8_t st4_max_sr_axis(void)
 {
 	if (_srxh(0) >= _srxh(1))
 	{
+#if (ST4_NUMAXES > 2)
 		if (_srxh(0) >= _srxh(2))
 		{
+#if (ST4_NUMAXES > 3)
 			if (_srxh(0) >= _srxh(3))
 				return 0;
 			else
 				return 3;
+#else //(ST4_NUMAXES > 3)
+			return 0;
+#endif //(ST4_NUMAXES > 3)
 		}
 		else
 		{
+#if (ST4_NUMAXES > 3)
 			if (_srxh(2) >= _srxh(3))
 				return 2;
 			else
 				return 3;
+#else //(ST4_NUMAXES > 3)
+			return 2;
+#endif //(ST4_NUMAXES > 3)
 		}
+#else //(ST4_NUMAXES > 2)
+		return 0;
+#endif //(ST4_NUMAXES > 2)
 	}
 	else
 	{
+#if (ST4_NUMAXES > 2)
 		if (_srxh(1) >= _srxh(2))
 		{
+#if (ST4_NUMAXES > 3)
 			if (_srxh(1) >= _srxh(3))
 				return 1;
 			else
 				return 3;
+#else //(ST4_NUMAXES > 3)
+			return 1;
+#endif //(ST4_NUMAXES > 3)
 		}
 		else
 		{
+#if (ST4_NUMAXES > 3)
 			if (_srxh(2) >= _srxh(3))
 				return 2;
 			else
 				return 3;
+#else //(ST4_NUMAXES > 3)
+			return 2;
+#endif //(ST4_NUMAXES > 3)
 		}
+#else //(ST4_NUMAXES > 2)
+		return 1;
+#endif //(ST4_NUMAXES > 2)
 	}
 }
 
@@ -166,6 +210,7 @@ int8_t st4_moa(uint8_t axis, int32_t val)
 
 void st4_setup_axis(uint8_t axis, uint16_t res, float sr0_mms, float srm_mms, float acc_mms2, float dec_mms2)
 {
+	memset(&(st4_axis[axis]), 0, sizeof(st4_axis_t));
 	st4_axis[axis].chr = st4_axis_chr(axis);
 	st4_axis[axis].res = res;
 	st4_set_sr0_mms(axis, sr0_mms);
@@ -356,21 +401,21 @@ inline void st4_step_intpol(void)
 
 inline void st4_cycle_indep(void)
 {
-	TCNT1 = 0;
+	TCNTn = 0;
 	uint8_t axis;
 	st4_max = st4_max_sr_axis();
 	st4_msr = _srxh(st4_max);
-	uint16_t tim0 = TCNT1;
+	uint16_t tim0 = TCNTn;
 	uint8_t sm = 0;
 	uint8_t em = 0;
 	uint16_t tim1;
 	if (st4_msr)
 	{
-//		em = ST4_GET_END() & st4_end;
-//		if (em & 0x01) st4_msk &= ~0x01;
-//		if (em & 0x02) st4_msk &= ~0x02;
+		em = ST4_GET_END() & st4_end;
+		if (em & 0x01) st4_msk &= ~0x01;
+		if (em & 0x02) st4_msk &= ~0x02;
 		st4_d2 = st4_sr2d2(st4_msr);
-		tim1 = TCNT1;
+		tim1 = TCNTn;
 //		printf_P(PSTR("maxsr=%u d2=%u srx=%u sry=%u x=%li y=%li\n"), st4_msr, st4_d2, _srxh(0), _srxh(1), _pos(0), _pos(1));
 //		printf_P(PSTR("maxsr=%u d2=%u srx=%u sry=%u x=%li y=%li flg=%u nac=%u nrm=%lu ndc=%u\n"), st4_msr, st4_d2, _srxh(0), _srxh(1), _pos(0), _pos(1), _flg(0), _cac(0), _crm(0), _cdc(0));
 		if (st4_msk & 0x01)
@@ -391,19 +436,19 @@ inline void st4_cycle_indep(void)
 	}
 	else
 		st4_d2 = 2000;
-	OCR1A = st4_d2;
-	uint16_t tim2 = TCNT1;
-	if (tim2 >= st4_d2) TCNT1 = st4_d2 - 10;
+	OCRnA = st4_d2;
+	uint16_t tim2 = TCNTn;
+	if (tim2 >= st4_d2) TCNTn = st4_d2 - 10;
 //	if (st4_msk & 0x0f)
 //		printf_P(PSTR("tim0=%u tim1=%u tim2=%u\n"), tim0, tim1, tim2);
 }
 
 inline void st4_cycle_intpol(void)
 {
-	TCNT1 = 0;
+	TCNTn = 0;
 	uint8_t axis;
 	st4_msr = _srxh(4);
-	uint16_t tim0 = TCNT1;
+	uint16_t tim0 = TCNTn;
 	uint8_t sm = 0;
 	uint8_t em = 0;
 	uint16_t tim1;
@@ -414,7 +459,7 @@ inline void st4_cycle_intpol(void)
 //		if (em & 0x02) st4_msk &= ~0x02;
 //		printf_P(PSTR("sr=%u d2=%u x=%li y=%li flg=%u nac=%u nrm=%lu ndc=%u\n"), st4_msr, st4_d2, _pos(0), _pos(1), _flg(4), _cac(4), _crm(4), _cdc(4));
 		st4_d2 = st4_sr2d2(st4_msr);
-		tim1 = TCNT1;
+		tim1 = TCNTn;
 		if (st4_msk & 0x01)
 			sm |= st4_cycle_axis_intpol(0, 0x01);
 #if (ST4_NUMAXES > 1)
@@ -434,9 +479,9 @@ inline void st4_cycle_intpol(void)
 	}
 	else
 		st4_d2 = 2000;
-	OCR1A = st4_d2;
-	uint16_t tim2 = TCNT1;
-	if (tim2 >= st4_d2) TCNT1 = st4_d2 - 10;
+	OCRnA = st4_d2;
+	uint16_t tim2 = TCNTn;
+	if (tim2 >= st4_d2) TCNTn = st4_d2 - 10;
 //	if (st4_msk & 0x0f)
 //		printf_P(PSTR("sr=%u d2=%u tim0=%u tim1=%u tim2=%u cpu=%u\n"), st4_msr, st4_d2, tim0, tim1, tim2, 100*tim2/st4_d2);
 }
@@ -584,32 +629,30 @@ void st4_fprint_axis(FILE* out, uint8_t axis)
 	fprintf_P(out, PSTR(" dec=%8.0f [mm/s^2]\n"), st4_get_dec_mms2(axis));
 }
 
-
-#if (ST4_TIMER == 1)
-
 void st4_setup_timer(void)
 {
 	// waveform generation = 0100 = CTC
-	TCCR1B &= ~(1<<WGM13);
-	TCCR1B |=  (1<<WGM12);
-	TCCR1A &= ~(1<<WGM11);
-	TCCR1A &= ~(1<<WGM10);
+	TCCRnB &= ~(1 << WGM13);
+	TCCRnB |=  (1 << WGM12);
+	TCCRnA &= ~(1 << WGM11);
+	TCCRnA &= ~(1 << WGM10);
 	// output mode = 00 (disconnected)
-	TCCR1A &= ~(3<<COM1A0);
-	TCCR1A &= ~(3<<COM1B0);
+	TCCRnA &= ~(3 << COMnA0);
+	TCCRnA &= ~(3 << COMnB0);
   // Set the timer pre-scaler
-	TCCR1B = (TCCR1B & ~(0x07<<CS10)) | (2<<CS10);
+	TCCRnB = (TCCRnB & ~(0x07 << CS10)) | (2 << CS10);
 	// Plan the first interrupt after 8ms from now.
-	OCR1A = 0x200;
-	TCNT1 = 0;
-	TIMSK1 |= (1<<OCIE1A);
+	OCRnA = 0x200;
+	TCNTn = 0;
+	TIMSKn |= (1 << OCIEnA);
 }
 
+#if (ST4_TIMER == 1)
 ISR(TIMER1_COMPA_vect)
+#elif (ST4_TIMER == 3)
+ISR(TIMER3_COMPA_vect)
+#endif
 {
 	st4_cycle_indep();
 //	st4_cycle_intpol();
 }
-
-#endif //(ST4_TIMER == 1)
-

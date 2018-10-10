@@ -67,6 +67,14 @@ typedef struct
 	uint16_t cdc;              //decelerating step count
 } st4_axis_t;
 
+//structure for axis configuration
+typedef struct
+{
+	uint16_t sr0;              //starting steprate [steps/s]
+	uint16_t srm;              //maximum steprate [steps/s]
+	uint16_t acc;              //acceleration [256*steps/s^2]
+	uint16_t dec;              //deceleration [256*steps/s^2]
+} st4_axis_config_t;
 
 
 #if defined(__cplusplus)
