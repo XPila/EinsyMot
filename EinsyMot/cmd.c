@@ -47,6 +47,7 @@
 #define CMD_ID_MOT     0x0f //motion
 
 #define CMD_ID_ERR     0x41 //error
+#define CMD_ID_FAN     0x42 //fan control
 
 
 #define TYPE_UI8    0x00
@@ -269,6 +270,7 @@ int8_t cmd_parse_cmd_id(char* pstr, uint8_t* pcmd_id)
 		else if (strncmp_P(pstr, PSTR("dir"), 3) == 0) *pcmd_id = CMD_ID_DIR;
 		else if (strncmp_P(pstr, PSTR("mot"), 3) == 0) *pcmd_id = CMD_ID_MOT;
 		else if (strncmp_P(pstr, PSTR("err"), 3) == 0) *pcmd_id = CMD_ID_ERR;
+		else if (strncmp_P(pstr, PSTR("fan"), 3) == 0) *pcmd_id = CMD_ID_FAN;
 		
 		if (*pcmd_id != 0)
 			return 3;
@@ -308,6 +310,9 @@ int8_t cmd_do_mod_wout_args(uint8_t mod_id, char pref, uint8_t cmd_id)
 				return CMD_OK;
 			case CMD_ID_MOT:
 				cmd_print_ui8(st4_msk & 0x0f);
+				return CMD_OK;
+			case CMD_ID_FAN:
+				cmd_print_ui8(einsy_get_fans());
 				return CMD_OK;
 			}
 		}
@@ -399,8 +404,12 @@ int8_t cmd_do_mod_with_args(uint8_t mod_id, char pref, uint8_t cmd_id, char* pst
 				st4_msk = (st4_msk & 0xf0) | (val0.ui8);
 				return CMD_OK;
 			case CMD_ID_ERR:
-				if ((ret = cmd_scan_ui16_min_max(pstr, &val_ui16, 0, 8)) < 0) return ret;
+				if ((ret = cmd_scan_ui16_min_max(pstr, &val0.ui16, 0, 8)) < 0) return ret;
 //				sla_error(-((int8_t)val_ui16));
+				return CMD_OK;
+			case CMD_ID_FAN:
+				if ((ret = cmd_scan_ui8_min_max(pstr, &val0.ui8, 0, 3)) < 0) return ret;
+				einsy_set_fans(val0.ui8);
 				return CMD_OK;
 			}
 	}

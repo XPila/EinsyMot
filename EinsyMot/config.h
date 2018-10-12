@@ -20,10 +20,26 @@
 
 
 //--------------------------------------
+//ADC configuration
+// chanels:
+// 0 - ADC0 - PF0 - temp0 (nozzle)
+// 1 - ADC1 - PF1 - temp1 (aux)
+// 2 - ADC2 - PF2 - temp2 (bed)
+// 3 - ADC3 - PF3 - temp3 (pinda)
+// 4 - ADC4 - PF4 - voltage0 (system power)
+// 5 - ADC6 - PF6 - temp4 (ambient)
+// 6 - ADC9 - PK1 - voltage1 (bed power)
+#define ADC_CHAN_MSK      0b0000001001011111 //used AD channels bit mask (0,1,2,3,4,6,9)
+#define ADC_CHAN_CNT      7         //number of used channels)
+#define ADC_OVRSAMPL      16        //oversampling multiplier
+#define ADC_READY         adc_ready //callback function ()
+
+
+//--------------------------------------
 //LCD configuration
 #define LCD_4BIT           // 4bit mode
 #define LCD_KNOB           // lcd knob input
-#define LCD_IBUF   16      // input buffer size (for knob data input)
+#define LCD_IBUF    8      // input buffer size (for knob data input)
 #define LCD_OBUF   64      // output buffer size (for lcd data output)
 #define LCD_INBL           // input non blocking mode
 //#define LCD_ONBL         // output non blocking mode

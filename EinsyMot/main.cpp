@@ -10,12 +10,13 @@
 #include <avr/delay.h>
 #include <avr/boot.h>
 #include "uart.h"
-#include "cmd.h"
+#include "adc.h"
 #include "lcd.h"
 #include "spi.h"
 #include "tmc2130.h"
 #include "st4.h"
 #include "einsy.h"
+#include "cmd.h"
 
 
 #if (UART_COM == 0)
@@ -27,6 +28,8 @@ FILE* uart_com = uart1io;
 
 void setup_osc(void);
 
+
+uint16_t ad_values[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 //initialization after reset
 void setup(void)
@@ -56,6 +59,8 @@ void setup(void)
 	fprintf_P(uart_com, PSTR("start\n")); //startup message
 	fflush(uart_com);
 
+	adc_init();
+
 	lcd_init();
 
 	einsy_io_setup_pins();
@@ -75,10 +80,16 @@ void setup(void)
 	tmc2130_set_sgt(2, 8);
 	tmc2130_set_sgt(3, 8);
 
-	st4_setup_axis(0, 100, 10,  200, 650, 650); //res=100ustep/mm, sr0=5mm/s, srm=70mm/s, acc=200mm/s^2, dec=400mm/s^2
-	st4_setup_axis(1, 100, 10,  200, 650, 650); //res=100ustep/mm, sr0=5mm/s, srm=70mm/s, acc=200mm/s^2, dec=400mm/s^2
-	st4_setup_axis(2, 400, 2,  40, 100, 100);  //res=400ustep/mm, sr0=1mm/s, srm=15mm/s, acc=50mm/s^2,  dec=100mm/s^2
-	st4_setup_axis(3, 280, 1,  10, 10, 10);   //res=280ustep/mm, sr0=1mm/s, srm=10mm/s, acc=10mm/s^2,  dec=10mm/s^2
+	// res - resolution [steps/unit]
+	// sr0 - starting steprate [unit/s]
+	// srm - maximum steprate [unit/s]
+	// acc - acceleration [unit/s^2]
+	// dec - deceleration [unit/s^2]
+	//          axis  res  sr0   srm  acc  dec
+	st4_setup_axis(0, 100,  10,  200, 650, 650);
+	st4_setup_axis(1, 100,  10,  200, 650, 650);
+	st4_setup_axis(2, 400,   2,   40, 100, 100);
+	st4_setup_axis(3, 280,  20,   50, 400, 400);
 
 #if 0
 	st4_setup_axis(4, 100, 10, 210, 650, 650); //res=400ustep/mm, sr0=1mm/s, srm=10mm/s, acc=10mm/s^2, dec=10mm/s^2
@@ -138,6 +149,17 @@ void loop(void)
 	{
 		fputc(key, cmd_err);
 	}
+	fprintf_P(lcdio, PSTR(ESC_H(0,0)"%04d %04d %04d %04d\n%04d %04d %04d %04d"),
+		ad_values[0],
+		ad_values[1],
+		ad_values[2],
+		ad_values[3],
+		ad_values[4],
+		ad_values[5],
+		ad_values[6],
+		ad_values[7]
+		); //startup message
+
 #if 0
 	if (st4_msk & 1)
 	{
@@ -170,5 +192,17 @@ void setup_osc(void)
 // Timer 0 is shared with millies
 ISR(TIMER0_COMPB_vect)
 {
+	adc_cycle(); //
 	lcd_cycle(); //slower lcd (full screen ~64ms)
+}
+
+extern "C" {
+
+void adc_ready(void)
+{
+	uint8_t i;
+	for (i = 0; i < 7; i++)
+		ad_values[i] = adc_val[i] >> 4;
+}
+
 }

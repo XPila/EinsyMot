@@ -10,6 +10,24 @@ void einsy_io_setup_pins(void)
 	PORTH &= ~0x28; //PH3,5 low
 }
 
+uint8_t einsy_get_fans(void)
+{
+	uint8_t mask = PORTH & 0x28;
+	if (mask & 0x08) mask &= ~0x01;
+	if (mask & 0x20) mask &= ~0x02;
+	mask &= 0x0f;
+	return mask;
+}
+
+void einsy_set_fans(uint8_t mask)
+{
+	mask &= 0x03;
+	if (mask & 0x01) mask |= 0x08; //bit3 high
+	if (mask & 0x02) mask |= 0x20; //bit5 high
+	mask &= 0x28;
+	PORTH = ((PORTH & ~0x28) | mask);
+}
+
 
 void einsy_tmc_setup_pins(void)
 {

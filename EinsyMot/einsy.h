@@ -12,6 +12,10 @@ extern "C" {
 
 extern void einsy_io_setup_pins(void);
 
+extern uint8_t einsy_get_fans(void);
+extern void einsy_set_fans(uint8_t mask);
+
+
 extern void einsy_tmc_setup_pins(void);
 //tmc chipselect control
 extern void einsy_tmc_cs_low(uint8_t axis);

@@ -375,7 +375,7 @@ int lcd_put(uint8_t c)
 
 #ifdef LCD_KNOB
 uint8_t lcd_btn = 0;
-uint8_t lcd_cnt = 0;
+uint8_t lcd_btn0 = 0;
 uint8_t lcd_sample_btn(void)
 {
 //	return lcd_test;
@@ -397,12 +397,11 @@ int lcd_get(void)
 void lcd_cycle(void)
 {
 #ifdef LCD_KNOB
-	if (lcd_cnt)
-		lcd_cnt--;
+	uint8_t btn = lcd_sample_btn();
+	if (lcd_btn0 != btn)
+		lcd_btn0 = btn;
 	else
 	{
-		lcd_cnt = 10;
-		uint8_t btn = lcd_sample_btn();
 #ifdef LCD_IBUF
 		uint8_t change = (btn ^ lcd_btn);
 		if (change & btn & 0x04)

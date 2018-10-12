@@ -201,6 +201,7 @@ int8_t st4_mor(uint8_t axis, int32_t val)
 	_srxl(axis) = 0;
 	_srxh(axis) = _sr0(axis);
 	st4_msk |= msk;
+	return 0;
 }
 
 int8_t st4_moa(uint8_t axis, int32_t val)
