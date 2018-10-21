@@ -1,0 +1,8 @@
+# Files excluded from this repository
+bin/*
+output/*
+Debug/*
+Release/*
+*.ncb
+*.suo
+*.user
