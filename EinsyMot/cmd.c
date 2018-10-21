@@ -495,9 +495,14 @@ void cmd_process(void)
 	int8_t ret = -1;
 	if (count < 32)
 	{
-
-		if ((c = (char)getc(cmd_in)) >= 0)
+#ifdef _SIMULATOR
+		if (kbhit())
+		if (((c = (char)getch()) >= 0) && (putchar((c==0x0d)?'\n':c)))
+#else //_SIMULATOR
+		if ((c = (char)fgetc(cmd_in)) >= 0)
+#endif //_SIMULATOR
 		{
+//			printf("%02hhx '%c'\n", c, c);
 			if (c == '\r') c = 0;
 			if (c == '\n') c = 0;
 			line[count] = c;
@@ -534,6 +539,7 @@ void cmd_process(void)
 			}
 		}
 		fprintf_P(cmd_out, (ret == 0)?PSTR("ok\n"):PSTR("e%d\n"), -ret);
+//		fflush(cmd_out);
 		count = 0;
 	}
 	else

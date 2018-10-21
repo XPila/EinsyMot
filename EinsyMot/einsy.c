@@ -1,7 +1,13 @@
 
 #include "einsy.h"
 #include <avr/io.h>
+#include <avr/interrupt.h>
+#include <avr/pgmspace.h>
+#include "adc.h"
+#include "lcd.h"
 
+
+uint16_t einsy_adc_val[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 void einsy_io_setup_pins(void)
 {
@@ -28,6 +34,169 @@ void einsy_set_fans(uint8_t mask)
 	PORTH = ((PORTH & ~0x28) | mask);
 }
 
+//100k ParCan thermistor (104GT-2), top rating 300C
+//32 pairs  raw-C
+const uint16_t PROGMEM table_nozzle[] =
+{
+    1,  713,
+   17,  300,
+   20,  290,
+   23,  280,
+   27,  270,
+   31,  260,
+   37,  250,
+   43,  240,
+   51,  230,
+   61,  220,
+   73,  210,
+   87,  200,
+  106,  190,
+  128,  180,
+  155,  170,
+  189,  160,
+  230,  150,
+  278,  140,
+  336,  130,
+  402,  120,
+  476,  110,
+  554,  100,
+  635,   90,
+  713,   80,
+  784,   70,
+  846,   60,
+  897,   50,
+  937,   40,
+  966,   30,
+  986,   20,
+ 1000,   10,
+ 1010,    0
+};
+
+int16_t einsy_calc_temp_nozzle(uint16_t raw)
+{
+	uint8_t c = sizeof(table_nozzle) >> 1;
+	uint8_t n = c >> 1;
+	uint8_t i;
+	uint16_t ri;
+	uint16_t ti;
+	uint16_t ri1;
+	uint16_t ti1;
+	while (1)
+	{
+		i = n << 1;
+		ri = table_nozzle[i + 0];
+		ti = table_nozzle[i + 1];
+		if ((raw == ri) || (n == c) || (n == 0))
+			return ti;
+		else if (raw > ri)
+		{
+			ri1 = table_nozzle[i + 2];
+			ti1 = table_nozzle[i + 3];
+			if (raw == ri1)
+				return ti1;
+			else if (raw < ri1)
+			{
+				return ti + (ti1 - ti) * (raw - ri) / (ri1 - ri);
+			}
+			else //(raw > ri1)
+				n += (c - n) / 2;
+		}
+		else //(raw < ri)
+		{
+			ri1 = table_nozzle[i - 2];
+			ti1 = table_nozzle[i - 1];
+			if (raw == ri1)
+				return ti1;
+			else if (raw < ri1)
+			{
+			}
+			else //(raw > ri1)
+				n >>= 1;
+		}
+	}
+}
+
+//100k bed thermistor
+//51 pairs  raw-C
+const uint16_t PROGMEM table_bed[] =
+{
+  23, 300,
+  25, 295,
+  27, 290,
+  28, 285,
+  31, 280,
+  33, 275,
+  35, 270,
+  38, 265,
+  41, 260,
+  44, 255,
+  48, 250,
+  52, 245,
+  56, 240,
+  61, 235,
+  66, 230,
+  71, 225,
+  78, 220,
+  84, 215,
+  92, 210,
+ 100, 205,
+ 109, 200,
+ 120, 195,
+ 131, 190,
+ 143, 185,
+ 156, 180,
+ 171, 175,
+ 187, 170,
+ 205, 165,
+ 224, 160,
+ 245, 155,
+ 268, 150,
+ 293, 145,
+ 320, 140,
+ 348, 135,
+ 379, 130,
+ 411, 125,
+ 445, 120,
+ 480, 115,
+ 516, 110,
+ 553, 105,
+ 591, 100,
+ 628,  95,
+ 665,  90,
+ 702,  85,
+ 737,  80,
+ 770,  75,
+ 801,  70,
+ 830,  65,
+ 857,  60,
+ 881,  55,
+ 903,  50,
+ 922,  45,
+ 939,  40,
+ 954,  35,
+ 966,  30,
+ 977,  25,
+ 985,  20,
+ 993,  15,
+ 999,  10,
+1004,   5,
+1008,   0
+};
+
+int16_t einsy_calc_temp_bed(uint16_t raw)
+{
+	return 0;
+}
+
+int16_t einsy_calc_temp_ambient(uint16_t raw)
+{
+	return 0;
+}
+
+int16_t einsy_calc_temp_pinda(uint16_t raw)
+{
+	return 0;
+}
 
 void einsy_tmc_setup_pins(void)
 {
@@ -171,3 +340,18 @@ void einsy_tmc_do_step(uint8_t mask)
 	PORTC &= ~0x0f;
 	asm("nop");
 }
+
+// Timer 0 is shared with millies
+ISR(TIMER0_COMPB_vect)
+{
+	adc_cycle(); //
+	lcd_cycle(); //slower lcd (full screen ~64ms)
+}
+
+void adc_ready(void)
+{
+	uint8_t i;
+	for (i = 0; i < 7; i++)
+		einsy_adc_val[i] = adc_val[i] >> 4;
+}
+

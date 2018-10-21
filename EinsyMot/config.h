@@ -1,4 +1,6 @@
 //config.h - main configuration file
+#ifndef _CONFIG_H
+#define _CONFIG_H
 
 
 //--------------------------------------
@@ -29,7 +31,8 @@
 // 4 - ADC4 - PF4 - voltage0 (system power)
 // 5 - ADC6 - PF6 - temp4 (ambient)
 // 6 - ADC9 - PK1 - voltage1 (bed power)
-#define ADC_CHAN_MSK      0b0000001001011111 //used AD channels bit mask (0,1,2,3,4,6,9)
+//#define ADC_CHAN_MSK      0b0000001001011111 //used AD channels bit mask (0,1,2,3,4,6,9)
+#define ADC_CHAN_MSK      0x25f     //used AD channels bit mask (0,1,2,3,4,6,9)
 #define ADC_CHAN_CNT      7         //number of used channels)
 #define ADC_OVRSAMPL      16        //oversampling multiplier
 #define ADC_READY         adc_ready //callback function ()
@@ -95,3 +98,23 @@
 #define ST4_GET_END    einsy_tmc_get_diag
 //step function
 #define ST4_DO_STEP    einsy_tmc_do_step
+
+
+//MSVC or MINGW simulator
+#ifdef _SIMULATOR
+#undef UART_STD
+#undef UART_COM
+#define UART_STD -1
+#define UART_COM 0
+#include <simulator.h>
+//#define register
+#define asm(code)
+#define _INLINE __inline
+//#define uart_std stdout
+//#define uart_com stdout
+#define SIM_LCD_WRITE sim_lcd_write
+#else //_SIMULATOR
+#define _INLINE inline
+#endif //_SIMULATOR
+
+#endif //_CONFIG_H

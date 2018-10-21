@@ -3,11 +3,14 @@
 #include "uart.h"
 #include "Arduino.h"
 
+extern "C" {
 
 FILE _uart0io = {0};
-
 FILE _uart1io = {0};
+FILE* uart0io = &_uart0io;
+FILE* uart1io = &_uart1io;
 
+}
 
 int uart0_putchar(char c, FILE *stream)
 {

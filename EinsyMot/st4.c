@@ -1,8 +1,10 @@
 //st4.c
 #include "st4.h"
+#include <string.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+
 
 //get/set direction control signals (defined in config.h)
 extern uint8_t ST4_GET_DIR(void);
@@ -10,6 +12,9 @@ extern void ST4_SET_DIR(uint8_t mask);
 
 //do step function (defined in config.h)
 extern void ST4_DO_STEP(uint8_t mask);
+
+//do step function (defined in config.h)
+extern uint8_t ST4_GET_END(void);
 
 #if (ST4_TIMER == 1)
 #define OCRnA OCR1A
@@ -172,9 +177,9 @@ void st4_calc_move(uint8_t axis, uint32_t n)
 	}
 	else
 	{
-		_cac(axis) = (uint32_t)_nac(axis) * n / nacdc;
+		_cac(axis) = (uint16_t)((uint32_t)_nac(axis) * n / nacdc);
 		_crm(axis) = 0;
-		_cdc(axis) = n - _cac(axis);
+		_cdc(axis) = (uint16_t)(n - _cac(axis));
 		flg = ST4_FLG_AC | ST4_FLG_DC;
 	}
 	_flg(axis) = flg;
@@ -281,19 +286,17 @@ void st4_set_pos_mm(uint8_t axis, float pos_mm)
 	_pos(axis) = (int16_t)(pos_mm * _res(axis));
 }
 
-inline uint32_t calc_dsrx(uint16_t acc, uint16_t d2)
+_INLINE uint32_t calc_dsrx(uint16_t acc, uint16_t d2)
 {
 	if (d2 < 256) return ((uint32_t)(acc * st4_d2)) << 3;
 	return ((uint32_t)acc * st4_d2) << 3;
 }
 
-inline void st4_step_axis_indep(uint8_t axis, uint8_t mask)
+_INLINE void st4_step_axis_indep(uint8_t axis, uint8_t mask)
 {
-	//update position counter
+	uint8_t register flg = _flg(axis); //cache flags in register
 	if (st4_msk & (mask << 4)) _pos(axis)--;
 	else _pos(axis)++;
-	//cache flags in register
-	uint8_t register flg = _flg(axis);
 	if (flg & ST4_FLG_AC)
 	{
 		_srx(axis) += calc_dsrx(_acc(axis), _d2s(axis));
@@ -328,7 +331,7 @@ inline void st4_step_axis_indep(uint8_t axis, uint8_t mask)
 	_flg(axis) = flg;
 }
 
-inline uint8_t st4_cycle_axis_indep(uint8_t axis, uint8_t mask)
+_INLINE uint8_t st4_cycle_axis_indep(uint8_t axis, uint8_t mask)
 {
 	_d2s(axis) += st4_d2;
 	if (_cnt(axis) <= _srxh(axis))
@@ -345,7 +348,7 @@ inline uint8_t st4_cycle_axis_indep(uint8_t axis, uint8_t mask)
 
 #define M (ST4_NUMAXES)
 
-inline uint8_t st4_cycle_axis_intpol(uint8_t axis, uint8_t mask)
+_INLINE uint8_t st4_cycle_axis_intpol(uint8_t axis, uint8_t mask)
 {
 	if (_cnt(axis) <= _srxh(axis))
 	{
@@ -360,7 +363,7 @@ inline uint8_t st4_cycle_axis_intpol(uint8_t axis, uint8_t mask)
 	return 0;
 }
 
-inline void st4_step_intpol(void)
+_INLINE void st4_step_intpol(void)
 {
 	//cache flags in register
 	uint8_t register flg = _flg(M);
@@ -400,16 +403,18 @@ inline void st4_step_intpol(void)
 
 #undef M
 
-inline void st4_cycle_indep(void)
+_INLINE void st4_cycle_indep(void)
 {
-	TCNTn = 0;
 	uint8_t axis;
-	st4_max = st4_max_sr_axis();
-	st4_msr = _srxh(st4_max);
-	uint16_t tim0 = TCNTn;
 	uint8_t sm = 0;
 	uint8_t em = 0;
+	uint16_t tim0;
 	uint16_t tim1;
+	uint16_t tim2;
+	TCNTn = 0;
+	st4_max = st4_max_sr_axis();
+	st4_msr = _srxh(st4_max);
+	tim0 = TCNTn;
 	if (st4_msr)
 	{
 		em = ST4_GET_END() & st4_end;
@@ -438,21 +443,23 @@ inline void st4_cycle_indep(void)
 	else
 		st4_d2 = 2000;
 	OCRnA = st4_d2;
-	uint16_t tim2 = TCNTn;
+	tim2 = TCNTn;
 	if (tim2 >= st4_d2) TCNTn = st4_d2 - 10;
 //	if (st4_msk & 0x0f)
 //		printf_P(PSTR("tim0=%u tim1=%u tim2=%u\n"), tim0, tim1, tim2);
 }
 
-inline void st4_cycle_intpol(void)
+_INLINE void st4_cycle_intpol(void)
 {
-	TCNTn = 0;
 	uint8_t axis;
-	st4_msr = _srxh(4);
-	uint16_t tim0 = TCNTn;
 	uint8_t sm = 0;
 	uint8_t em = 0;
+	uint16_t tim0;
 	uint16_t tim1;
+	uint16_t tim2;
+	TCNTn = 0;
+	st4_msr = _srxh(4);
+	tim0 = TCNTn;
 	if (st4_msr)
 	{
 //		em = ST4_GET_END() & st4_end;
@@ -481,7 +488,7 @@ inline void st4_cycle_intpol(void)
 	else
 		st4_d2 = 2000;
 	OCRnA = st4_d2;
-	uint16_t tim2 = TCNTn;
+	tim2 = TCNTn;
 	if (tim2 >= st4_d2) TCNTn = st4_d2 - 10;
 //	if (st4_msk & 0x0f)
 //		printf_P(PSTR("sr=%u d2=%u tim0=%u tim1=%u tim2=%u cpu=%u\n"), st4_msr, st4_d2, tim0, tim1, tim2, 100*tim2/st4_d2);

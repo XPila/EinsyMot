@@ -19,7 +19,7 @@
 extern "C" {
 #endif //defined(__cplusplus)
 
-static inline void spi_init()
+static _INLINE void spi_init(void)
 {
 	DDRB &= ~((1 << DD_SCK) | (1 << DD_MOSI) | (1 << DD_MISO));
 	DDRB |= (1 << DD_SS) | (1 << DD_SCK) | (1 << DD_MOSI);
@@ -29,16 +29,18 @@ static inline void spi_init()
 	SPSR = 0x00;
 }
 
-static inline void spi_setup(uint8_t spcr, uint8_t spsr)
+static _INLINE void spi_setup(uint8_t spcr, uint8_t spsr)
 {
 	SPCR = spcr;
 	SPSR = spsr;
 }
 
-static inline uint8_t spi_txrx(uint8_t tx)
+static _INLINE uint8_t spi_txrx(uint8_t tx)
 {
 	SPDR = tx;
+#ifndef _SIMULATOR
 	while (!(SPSR & (1 << SPIF)));
+#endif //_SIMULATOR
 	return SPDR;
 }
 

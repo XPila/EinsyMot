@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include <avr/io.h>
 #include <avr/wdt.h>
+#include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <avr/delay.h>
 #include <avr/boot.h>
@@ -21,21 +22,22 @@
 
 #if (UART_COM == 0)
 FILE* uart_com = uart0io;
+//#define uart_com uart0io
 #elif (UART_COM == 1)
-FILE* uart_com = uart1io;
+//FILE* uart_com = uart1io;
+#define uart_com uart1io
 #endif //(UART_COM == 0)
 
 
 void setup_osc(void);
 
 
-uint16_t ad_values[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 //initialization after reset
 void setup(void)
 {
-	uint16_t cnt;
-	int8_t ret;
+//	uint16_t cnt;
+//	int8_t ret;
 
 	wdt_disable();
 
@@ -52,16 +54,26 @@ void setup(void)
 	stdout = uart1io; // stdout = uart1
 #endif //(UART_STD == 1)
 
+	uart_com = uart0io;
+
 	cmd_in = uart_com;
 	cmd_out = uart_com;
 	cmd_err = uart_com;
 
-	fprintf_P(uart_com, PSTR("start\n")); //startup message
-	fflush(uart_com);
+#ifdef _SIMULATOR
+	cmd_in = stdin;
+	cmd_out = stdout;
+	cmd_err = stderr;
+#endif //_SIMULATOR
+
+	fprintf_P(cmd_out, PSTR("start\n")); //startup message
+	fflush(cmd_out);
 
 	adc_init();
 
 	lcd_init();
+	fprintf_P(lcdout, PSTR(ESC_H(0,0)"Einsy motion\ntest")); //startup message
+	fflush(lcdout);
 
 	einsy_io_setup_pins();
 
@@ -70,6 +82,7 @@ void setup(void)
 	spi_init();
 
 	tmc2130_init();
+
 	tmc2130_set_cur(0, 20);
 	tmc2130_set_cur(1, 30);
 	tmc2130_set_cur(2, 30);
@@ -132,33 +145,39 @@ void setup(void)
 	OCR0B = 128;
 	TIMSK0 |= (1 << OCIE0B);
 
-	fprintf_P(lcdio, PSTR(ESC_H(0,0)"Einsy motion\ntest")); //startup message
 
 	//st4_fprint_sr2d2_tab(cmd_err);
 	//st4_fprint_sr_d2(cmd_err, ST4_THR_SR0, ST4_THR_SR4);
 	//st4_gen_seg(ST4_THR_SR3, 6, 0);
 }
 
+
 //main loop
 void loop(void)
 {
 //	st4_cycle();
 	cmd_process();
+
+#if 0
 	int key = lcd_get();
 	if (key > 0)
 	{
 		fputc(key, cmd_err);
 	}
-	fprintf_P(lcdio, PSTR(ESC_H(0,0)"%04d %04d %04d %04d\n%04d %04d %04d %04d"),
-		ad_values[0],
-		ad_values[1],
-		ad_values[2],
-		ad_values[3],
-		ad_values[4],
-		ad_values[5],
-		ad_values[6],
-		ad_values[7]
-		); //startup message
+#endif
+
+#if 0
+	fprintf_P(lcdout, PSTR(ESC_H(0,0)"%04d %04d %04d %04d\n%04d %04d %04d %04d"),
+		einsy_adc_val[0],
+		einsy_adc_val[1],
+		einsy_adc_val[2],
+		einsy_adc_val[3],
+		einsy_adc_val[4],
+		einsy_adc_val[5],
+		einsy_adc_val[6],
+		einsy_adc_val[7]
+		);
+#endif
 
 #if 0
 	if (st4_msk & 1)
@@ -170,6 +189,7 @@ void loop(void)
 		fprintf_P(uart_com, PSTR("sgX=%5d diag=%d millis=%ld srxh=%u\n"), sg, diag, ms, srxh);
 	}
 #endif
+
 #if 0
 	if (einsy_tmc_get_ena())
 	if (((st4_msk & 0x0f) == 0) || (millis() > 6000))
@@ -189,20 +209,5 @@ void setup_osc(void)
 */
 }
 
-// Timer 0 is shared with millies
-ISR(TIMER0_COMPB_vect)
-{
-	adc_cycle(); //
-	lcd_cycle(); //slower lcd (full screen ~64ms)
-}
-
-extern "C" {
-
-void adc_ready(void)
-{
-	uint8_t i;
-	for (i = 0; i < 7; i++)
-		ad_values[i] = adc_val[i] >> 4;
-}
-
-}
+//extern "C" {
+//}

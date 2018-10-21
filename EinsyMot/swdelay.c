@@ -1,7 +1,6 @@
 //swdelay.c - Software delay functions
 #include "swdelay.h"
 
-
 //delay functions
 
 #if (F_CPU == 16000000)

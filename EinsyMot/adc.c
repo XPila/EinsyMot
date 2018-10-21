@@ -1,6 +1,7 @@
 //adc.c
 
 #include "adc.h"
+#include <inttypes.h>
 #include <avr/io.h>
 
 
@@ -29,9 +30,10 @@ void adc_init(void)
 
 void adc_res(void)
 {
+	uint8_t i;
 	adc_sta = 0;
 	adc_cnt = 0;
-	uint8_t i; for (i = 0; i < ADC_CHAN_CNT; i++)
+	for (i = 0; i < ADC_CHAN_CNT; i++)
 	if ((adc_sim_msk & (1 << i)) == 0)
 		adc_val[i] = 0;
 }

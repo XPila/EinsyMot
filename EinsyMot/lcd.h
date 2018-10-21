@@ -36,8 +36,8 @@ extern "C" {
 
 
 #ifdef LCD_FILE
-#define lcdio (&_lcdio)
-extern FILE _lcdio;
+extern FILE* lcdin;
+extern FILE* lcdout;
 #endif //LCD_FILE
 
 

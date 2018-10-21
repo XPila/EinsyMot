@@ -20,6 +20,8 @@ uint8_t _wait_counter;
 
 #ifdef LCD_FILE
 FILE _lcdio = {0};
+FILE* lcdin = &_lcdio;
+FILE* lcdout = &_lcdio;
 int lcd_putchar(char c, FILE *stream)
 {
 	return lcd_put(c);
@@ -40,6 +42,10 @@ int lcd_getchar(FILE *stream)
 
 
 //lcd functions
+
+#ifdef _SIMULATOR
+extern void SIM_LCD_WRITE(uint8_t val);
+#endif //_SIMULATOR
 
 #ifdef LCD_4BIT
 
@@ -65,6 +71,9 @@ void lcd_write(uint8_t val)
 	PORT(LCD_PIN_D6) |= __MSK(LCD_PIN_D6);
 	PORT(LCD_PIN_D5) |= __MSK(LCD_PIN_D5);
 	PORT(LCD_PIN_D4) |= __MSK(LCD_PIN_D4);
+#ifdef _SIMULATOR
+	SIM_LCD_WRITE(val);
+#endif //_SIMULATOR
 }
 
 void lcd_init(void)
@@ -122,9 +131,9 @@ void lcd_init(void)
 	lcd_cmd(LCD_CMD_DISPLAYCONTROL | LCD_FLG_DISPLAYON, 1);
 #ifdef LCD_FILE
 #ifdef LCD_IBUF
-	fdev_setup_stream(lcdio, lcd_putchar, lcd_getchar, _FDEV_SETUP_WRITE | _FDEV_SETUP_READ); //setup lcd i/o stream
+	fdev_setup_stream(&_lcdio, lcd_putchar, lcd_getchar, _FDEV_SETUP_WRITE | _FDEV_SETUP_READ); //setup lcd i/o stream
 #else //LCD_IBUF
-	fdev_setup_stream(lcdio, lcd_putchar, 0, _FDEV_SETUP_WRITE); //setup lcd i/o stream
+	fdev_setup_stream(&_lcdio, lcd_putchar, 0, _FDEV_SETUP_WRITE); //setup lcd i/o stream
 #endif //LCD_IBUF
 #endif //LCD_FILE
 #ifdef LCD_KNOB
@@ -186,8 +195,9 @@ void lcd_erase_screen(uint8_t wait)
 
 void lcd_cursor_home(uint8_t c, uint8_t r, uint8_t wait)
 {
+	uint8_t addr;
 	if (r >= _numlines) r = _numlines - 1;
-	uint8_t addr = (_row_addr[r] + c) & 0x7f;
+	addr = (_row_addr[r] + c) & 0x7f;
 	_currline = r;
 	lcd_cmd(LCD_CMD_SETDDRAMADDR | addr, wait);
 }
@@ -345,7 +355,7 @@ void lcd_chr(uint8_t chr, uint8_t wait)
 	{
 		if (_currline > _numlines) _currline = -1;
 		lcd_cursor_home(0, _currline + 1, wait); // LF
-		return 1;
+		return;
 	}
 	if (_escape[0] || (chr == 0x1b))
 	{
@@ -396,6 +406,7 @@ int lcd_get(void)
 #ifdef LCD_OBUF
 void lcd_cycle(void)
 {
+	int c;
 #ifdef LCD_KNOB
 	uint8_t btn = lcd_sample_btn();
 	if (lcd_btn0 != btn)
@@ -422,7 +433,7 @@ void lcd_cycle(void)
 		_wait_counter--;
 		return;
 	}
-	int c = rbuf_get(lcd_obuf);
+	c = rbuf_get(lcd_obuf);
 	if (c > 0) lcd_chr(c, 0);
 }
 #endif //LCD_OBUF

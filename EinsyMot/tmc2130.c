@@ -209,6 +209,8 @@ uint8_t tmc2130_tx(uint8_t axis, uint8_t addr, uint32_t wval)
 
 uint8_t tmc2130_rx(uint8_t axis, uint8_t addr, uint32_t* rval)
 {
+	uint8_t stat; // status
+	uint32_t val32 = 0;
 	//datagram1 - request
 	TMC2130_SPI_ENTER();
 	TMC2130_CS_LOW(axis);
@@ -222,8 +224,7 @@ uint8_t tmc2130_rx(uint8_t axis, uint8_t addr, uint32_t* rval)
 	//datagram2 - response
 	TMC2130_SPI_ENTER();
 	TMC2130_CS_LOW(axis);
-	uint8_t stat = TMC2130_SPI_TXRX(0); // status
-	uint32_t val32 = 0;
+	stat = TMC2130_SPI_TXRX(0); // status
 	val32 = TMC2130_SPI_TXRX(0); // MSB
 	val32 = (val32 << 8) | TMC2130_SPI_TXRX(0);
 	val32 = (val32 << 8) | TMC2130_SPI_TXRX(0);

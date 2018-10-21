@@ -7,11 +7,10 @@
 #include "config.h"
 
 
-extern FILE _uart0io;
-#define uart0io (&_uart0io)
-
-extern FILE _uart1io;
-#define uart1io (&_uart1io)
+extern "C" {
+extern FILE* uart0io;
+extern FILE* uart1io;
+}
 
 
 extern void uart0_init(void);
