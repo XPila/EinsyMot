@@ -40,7 +40,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="$(SolutionDir)\SimMSVC"
+				AdditionalIncludeDirectories="&quot;$(SolutionDir)\SimMSVC&quot;;&quot;$(SolutionDir)\EinsyMot&quot;"
 				PreprocessorDefinitions="_SIMULATOR;_AVR;F_CPU=16000000;"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -268,11 +268,15 @@
 			Name="_Scripts"
 			>
 			<File
-				RelativePath=".\!build_arduino168.sh"
+				RelativePath=".\Scripts\build.sh"
 				>
 			</File>
 			<File
-				RelativePath=".\!flash.sh"
+				RelativePath=".\Scripts\clean.sh"
+				>
+			</File>
+			<File
+				RelativePath=".\Scripts\flash.sh"
 				>
 			</File>
 		</Filter>

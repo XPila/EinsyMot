@@ -2,9 +2,16 @@
 #define _UTIL_DELAY_H_ 1
 
 
-void _delay_us(double __us) {}
+#if defined(__cplusplus)
+extern "C" {
+#endif //defined(__cplusplus)
 
-void _delay_ms(double __ms) {}
+extern void _delay_us(double __us);
 
+extern void _delay_ms(double __ms);
+
+#if defined(__cplusplus)
+}
+#endif //defined(__cplusplus)
 
 #endif //_UTIL_DELAY_H_

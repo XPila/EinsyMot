@@ -1,15 +1,27 @@
 #include "simulator.h"
 #include <stdio.h>
 #include <avr/io.h>
+#include <config.h>
+
+#ifdef _SIM_LCD
 #include "sim_lcd.h"
+#endif //_SIM_LCD
 
 unsigned char OCR0B = 0;
 unsigned char TIMSK0 = 0;
 unsigned char TIMSK1 = 0;
 unsigned short OCR1A = 0;
+unsigned short OCR1B = 0;
+unsigned short OCR1C = 0;
 unsigned short TCNT1 = 0;
 unsigned char TCCR1A = 0;
 unsigned char TCCR1B = 0;
+
+unsigned char TIMSK3 = 0;
+unsigned short TCNT3 = 0;
+unsigned short OCR3A = 0;
+unsigned char TCCR3A = 0;
+unsigned char TCCR3B = 0;
 
 
 unsigned char DDRA = 0;
@@ -62,6 +74,14 @@ unsigned char DIDR0 = 0;
 unsigned char DIDR2 = 0;
 unsigned short ADC = 0;
 
+unsigned char MCUSR = 0;
+unsigned char WDTCSR = 0;
+unsigned char CLKSEL0 = 0;
+unsigned char CLKSEL1 = 0;
+unsigned char CLKPR = 0;
+unsigned char UHWCON = 0;
+unsigned char USBCON = 0;
+
 
 #include <windows.h>
 #include <io.h>
@@ -90,7 +110,10 @@ void sim_uart1io_init(void);
 void sim_uart1io_done(void);
 
 DWORD WINAPI sim_timer0_threadProc(LPVOID lpParameter);
+
+#ifdef _SIM_TIMER1
 DWORD WINAPI sim_timer1_threadProc(LPVOID lpParameter);
+#endif //_SIM_TIMER1
 
 extern void TIMER0_COMPB_vect(void);
 extern void TIMER1_COMPA_vect(void);
@@ -104,20 +127,28 @@ void sim_cycle(void)
 		TranslateMessage(&sMsg); 
 		DispatchMessage(&sMsg);
 	}
+#ifdef _SIM_LCD
 	fflush(sim_lcd_outF[1]);
+#endif //_SIM_LCD
 	Sleep(10);
 }
 
 void sim_init(void)
 {
+#ifdef _SIM_LCD
 	sim_lcd_init();
+#endif //_SIM_LCD
 	sim_timer0_thread = CreateThread(0, 0, sim_timer0_threadProc, 0, 0, &sim_timer0_threadId);
+#ifdef _SIM_TIMER1
 	sim_timer1_thread = CreateThread(0, 0, sim_timer1_threadProc, 0, 0, &sim_timer1_threadId);
+#endif //_SIM_TIMER1
 }
 
 void sim_done(void)
 {
+#ifdef _SIM_LCD
 	sim_window_done();
+#endif //_SIM_LCD
 }
 
 void sim_uart0io_init(void)
@@ -204,11 +235,45 @@ void sim_uart1io_done(void)
 }
 
 
+void _delay_us(double __us)
+{
+}
+
+void _delay_ms(double __ms)
+{
+}
+
+uint8_t boot_signature_byte_get(uint8_t addr)
+{
+}
+
+void cli(void)
+{
+}
+
+void sei(void)
+{
+}
+
+uint8_t eeprom_read_byte (const uint8_t *__p)
+{
+}
+
+uint8_t eeprom_write_byte (const uint8_t *__p, uint8_t value)
+{
+}
+
+uint8_t eeprom_update_byte (const uint8_t *__p, uint8_t value)
+{
+}
+
 void fdev_setup_stream(void* stream, void* put, void* get, int rwflag)
 {
 	if (stream == &_uart0io) sim_uart0io_init();
 	else if (stream == &_uart1io) sim_uart1io_init();
+#ifdef _SIM_LCD
 	else if (stream == &_lcdio) sim_lcdio_init();
+#endif //_SIM_LCD
 
 /*#define fdev_setup_stream(stream, p, g, f) \
 	do { \
@@ -231,6 +296,7 @@ DWORD WINAPI sim_timer0_threadProc(LPVOID lpParameter)
 	return 0;
 }
 
+#ifdef _SIM_TIMER1
 DWORD WINAPI sim_timer1_threadProc(LPVOID lpParameter)
 {
 	int i;
@@ -242,3 +308,4 @@ DWORD WINAPI sim_timer1_threadProc(LPVOID lpParameter)
 	}
 	return 0;
 }
+#endif //_SIM_TIMER1

@@ -102,6 +102,8 @@
 
 //MSVC or MINGW simulator
 #ifdef _SIMULATOR
+#define _SIM_LCD
+#define _SIM_TIMER1
 #undef UART_STD
 #undef UART_COM
 #define UART_STD -1

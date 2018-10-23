@@ -7,12 +7,15 @@
 
 #define OCIE0B 0
 #define OCIE1A 0
+#define OCIE3A 0
 #define WGM13 0
 #define WGM12 0
 #define WGM11 0
 #define WGM10 0
 #define COM1A0 0
 #define COM1B0 0
+#define COM3A0 0
+#define COM3B0 0
 #define CS10 0
 #define CS10 0
 #define ADPS2 0
@@ -29,12 +32,22 @@ extern "C" {
 
 extern unsigned char OCR0B;
 extern unsigned char TIMSK0;
-extern unsigned char TIMSK1;
 
 extern unsigned short OCR1A;
+extern unsigned short OCR1B;
+extern unsigned short OCR1C;
 extern unsigned short TCNT1;
 extern unsigned char TCCR1A;
 extern unsigned char TCCR1B;
+extern unsigned char TIMSK1;
+
+extern unsigned short OCR3A;
+extern unsigned short OCR3B;
+extern unsigned short OCR3C;
+extern unsigned short TCNT3;
+extern unsigned char TCCR3A;
+extern unsigned char TCCR3B;
+extern unsigned char TIMSK3;
 
 extern unsigned char DDRA;
 extern unsigned char DDRB;
@@ -98,6 +111,20 @@ extern unsigned char ADMUX;
 extern unsigned char DIDR0;
 extern unsigned char DIDR2;
 extern unsigned short ADC;
+
+
+extern unsigned char MCUSR;
+
+extern unsigned char WDTCSR;
+#define WDRF 0
+#define WDCE 0
+#define WDE 0
+
+extern unsigned char CLKSEL0;
+extern unsigned char CLKSEL1;
+extern unsigned char CLKPR;
+extern unsigned char UHWCON;
+extern unsigned char USBCON;
 
 #if defined(__cplusplus)
 }
