@@ -105,11 +105,12 @@ void sim_cycle(void)
 		DispatchMessage(&sMsg);
 	}
 	fflush(sim_lcd_outF[1]);
+	Sleep(10);
 }
 
 void sim_init(void)
 {
-	sim_window_init();
+	sim_lcd_init();
 	sim_timer0_thread = CreateThread(0, 0, sim_timer0_threadProc, 0, 0, &sim_timer0_threadId);
 	sim_timer1_thread = CreateThread(0, 0, sim_timer1_threadProc, 0, 0, &sim_timer1_threadId);
 }

@@ -44,13 +44,16 @@ int lcd_getchar(FILE *stream)
 //lcd functions
 
 #ifdef _SIMULATOR
-extern void SIM_LCD_WRITE(uint8_t val);
+extern void SIM_LCD_WRITE(int val);
 #endif //_SIMULATOR
 
 #ifdef LCD_4BIT
 
 void lcd_write(uint8_t val)
 {
+#ifdef _SIMULATOR
+		SIM_LCD_WRITE((int)val | ((PORT(LCD_PIN_RS) & __MSK(LCD_PIN_RS))?0:0x100));
+#else //_SIMULATOR
 	if (val & 0x80) PORT(LCD_PIN_D7) |= __MSK(LCD_PIN_D7); else PORT(LCD_PIN_D7) &= ~__MSK(LCD_PIN_D7);
 	if (val & 0x40) PORT(LCD_PIN_D6) |= __MSK(LCD_PIN_D6); else PORT(LCD_PIN_D6) &= ~__MSK(LCD_PIN_D6);
 	if (val & 0x20) PORT(LCD_PIN_D5) |= __MSK(LCD_PIN_D5); else PORT(LCD_PIN_D5) &= ~__MSK(LCD_PIN_D5);
@@ -71,8 +74,6 @@ void lcd_write(uint8_t val)
 	PORT(LCD_PIN_D6) |= __MSK(LCD_PIN_D6);
 	PORT(LCD_PIN_D5) |= __MSK(LCD_PIN_D5);
 	PORT(LCD_PIN_D4) |= __MSK(LCD_PIN_D4);
-#ifdef _SIMULATOR
-	SIM_LCD_WRITE(val);
 #endif //_SIMULATOR
 }
 

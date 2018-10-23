@@ -300,6 +300,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\SimMSVC\sim_lcd_rom.c"
+				>
+			</File>
+			<File
 				RelativePath=".\SimMSVC\simulator.c"
 				>
 			</File>

@@ -1,5 +1,5 @@
 //main.cpp
-//test
+
 //#include "main.h"
 #include <stdio.h>
 #include <string.h>
@@ -31,6 +31,7 @@ FILE* uart_com = uart0io;
 
 void setup_osc(void);
 
+int loop_cnt = 0;
 
 
 //initialization after reset
@@ -74,6 +75,7 @@ void setup(void)
 	lcd_init();
 	fprintf_P(lcdout, PSTR(ESC_H(0,0)"Einsy motion\ntest")); //startup message
 	fflush(lcdout);
+	loop_cnt = -100;
 
 	einsy_io_setup_pins();
 
@@ -157,8 +159,9 @@ void loop(void)
 {
 //	st4_cycle();
 	cmd_process();
+	if (loop_cnt > 100) loop_cnt = 0;
 
-#if 0
+#if 1
 	int key = lcd_get();
 	if (key > 0)
 	{
@@ -166,7 +169,8 @@ void loop(void)
 	}
 #endif
 
-#if 0
+#if 1
+	if (loop_cnt++ == 0)
 	fprintf_P(lcdout, PSTR(ESC_H(0,0)"%04d %04d %04d %04d\n%04d %04d %04d %04d"),
 		einsy_adc_val[0],
 		einsy_adc_val[1],

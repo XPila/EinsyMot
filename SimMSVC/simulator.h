@@ -22,10 +22,11 @@ extern "C" {
 #endif //defined(__cplusplus)
 
 #include <stdio.h>
-extern FILE* uart0io;
-extern FILE* uart1io;
+//extern FILE* uart0io;
+//extern FILE* uart1io;
 
 extern void fdev_setup_stream(void* stream, void* put, void* get, int rwflag);
+
 
 #if defined(__cplusplus)
 }
