@@ -32,7 +32,13 @@ FILE* uart_com = uart0io;
 void setup_osc(void);
 
 int loop_cnt = 0;
+typedef void (*menu_func_t)(void);
+menu_func_t menu = 0;
+int item_cur = 0;
+int item_top = 0;
 
+void menu_A(void);
+void menu_B(void);
 
 //initialization after reset
 void setup(void)
@@ -151,25 +157,127 @@ void setup(void)
 	//st4_fprint_sr2d2_tab(cmd_err);
 	//st4_fprint_sr_d2(cmd_err, ST4_THR_SR0, ST4_THR_SR4);
 	//st4_gen_seg(ST4_THR_SR3, 6, 0);
+	menu = menu_A;
 }
 
+void menu_A(void)
+{
+	int item_max = 4;
+	int key = lcd_get();
+	if (loop_cnt == 0) fprintf_P(lcdout, PSTR(ESC_2J ESC_H(0,0)));
+	if (item_top > item_cur) item_top = item_cur;
+	if (item_top < (item_cur - 3)) item_top = (item_cur - 3);
+	int item; for (item = item_top; item < (item_top + 4); item++)
+	{
+		switch (item)
+		{
+		case 0:
+			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemA0\n"), (item == item_cur)?'>':' ');
+			else if ((item == item_cur) && (key == '\n'))
+			{
+				item_cur = 0;
+				item_top = 0;
+				menu = menu_B;
+				return;
+			}
+			break;
+		case 1:
+			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemA1\n"), (item == item_cur)?'>':' ');
+			break;
+		case 2:
+			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemA2\n"), (item == item_cur)?'>':' ');
+			break;
+		case 3:
+			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemA3\n"), (item == item_cur)?'>':' ');
+			break;
+		case 4:
+			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemA4\n"), (item == item_cur)?'>':' ');
+			break;
+		}
+	}
+	if (key == '+')
+	{
+		item_cur++;
+		loop_cnt = -1;
+	}
+	else if (key == '-')
+	{
+		item_cur--;
+		loop_cnt = -1;
+	}
+	if (item_cur < 0) item_cur = 0;
+	if (item_cur > item_max) item_cur = item_max;
+}
+
+void menu_B(void)
+{
+	int item_max = 4;
+	int key = lcd_get();
+	if (loop_cnt == 0) fprintf_P(lcdout, PSTR(ESC_2J ESC_H(0,0)));
+	if (item_top > item_cur) item_top = item_cur;
+	if (item_top < (item_cur - 3)) item_top = (item_cur - 3);
+	int item; for (item = item_top; item < (item_top + 4); item++)
+	{
+		switch (item)
+		{
+		case 0:
+			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemB0\n"), (item == item_cur)?'>':' ');
+			break;
+		case 1:
+			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemB1\n"), (item == item_cur)?'>':' ');
+			break;
+		case 2:
+			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemB2\n"), (item == item_cur)?'>':' ');
+			break;
+		case 3:
+			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemB3\n"), (item == item_cur)?'>':' ');
+			break;
+		case 4:
+			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemB4\n"), (item == item_cur)?'>':' ');
+			break;
+		}
+	}
+	if (key == '+')
+	{
+		item_cur++;
+		loop_cnt = -1;
+	}
+	else if (key == '-')
+	{
+		item_cur--;
+		loop_cnt = -1;
+	}
+	else if (key == '\n')
+	{
+		item_cur = 0;
+		item_top = 0;
+		menu = menu_A;
+	}
+	if (item_cur < 0) item_cur = 0;
+	if (item_cur > item_max) item_cur = item_max;
+}
 
 //main loop
 void loop(void)
 {
 //	st4_cycle();
 	cmd_process();
-	if (loop_cnt > 100) loop_cnt = 0;
+	loop_cnt++;
+	if (loop_cnt > 10000) loop_cnt = 0;
+//	if (loop_cnt++ == 0)
+	{
+		(*menu)();
+	}
 
-#if 1
+#if 0
 	int key = lcd_get();
 	if (key > 0)
 	{
-		fputc(key, cmd_err);
+//		fputc(key, cmd_err);
 	}
 #endif
 
-#if 1
+#if 0
 	if (loop_cnt++ == 0)
 	fprintf_P(lcdout, PSTR(ESC_H(0,0)"%04d %04d %04d %04d\n%04d %04d %04d %04d"),
 		einsy_adc_val[0],
