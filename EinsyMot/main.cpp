@@ -32,13 +32,16 @@ FILE* uart_com = uart0io;
 void setup_osc(void);
 
 int loop_cnt = 0;
-typedef void (*menu_func_t)(void);
-menu_func_t menu = 0;
-int item_cur = 0;
-int item_top = 0;
+//typedef void (*menu_func_t)(void);
+//menu_func_t menu = 0;
+//int item_cur = 0;
+//int item_top = 0;
 
+#if 0
 void menu_A(void);
 void menu_B(void);
+#endif
+
 
 //initialization after reset
 void setup(void)
@@ -157,9 +160,10 @@ void setup(void)
 	//st4_fprint_sr2d2_tab(cmd_err);
 	//st4_fprint_sr_d2(cmd_err, ST4_THR_SR0, ST4_THR_SR4);
 	//st4_gen_seg(ST4_THR_SR3, 6, 0);
-	menu = menu_A;
+//	menu = menu_A;
 }
 
+#if 0
 void menu_A(void)
 {
 	int item_max = 4;
@@ -256,6 +260,7 @@ void menu_B(void)
 	if (item_cur < 0) item_cur = 0;
 	if (item_cur > item_max) item_cur = item_max;
 }
+#endif
 
 //main loop
 void loop(void)
@@ -265,9 +270,9 @@ void loop(void)
 	loop_cnt++;
 	if (loop_cnt > 10000) loop_cnt = 0;
 //	if (loop_cnt++ == 0)
-	{
-		(*menu)();
-	}
+//	{
+//		(*menu)();
+//	}
 
 #if 0
 	int key = lcd_get();
