@@ -39,6 +39,11 @@
 
 
 //--------------------------------------
+//CMD configuration (file stream command processor)
+#define CMD_MAX_LINE 42        //;-)
+
+
+//--------------------------------------
 //LCD configuration
 #define LCD_4BIT           // 4bit mode
 #define LCD_KNOB           // lcd knob input

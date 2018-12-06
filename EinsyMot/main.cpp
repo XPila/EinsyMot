@@ -17,7 +17,7 @@
 #include "tmc2130.h"
 #include "st4.h"
 #include "einsy.h"
-#include "cmd.h"
+#include "cmd_einsy.h"
 
 
 #if (UART_COM == 0)
