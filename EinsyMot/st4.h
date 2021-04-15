@@ -98,6 +98,8 @@ extern int8_t st4_mor(uint8_t axis, int32_t val);
 
 extern int8_t st4_moa(uint8_t axis, int32_t val);
 
+extern int8_t st4_mov(uint8_t axis, int32_t val);
+
 extern void st4_setup_axis(uint8_t axis, uint16_t res, float sr0_mms, float srm_mms, float acc_mms2, float dec_mms2);
 
 extern float st4_get_srx_mms(uint8_t axis);

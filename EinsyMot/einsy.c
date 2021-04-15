@@ -341,17 +341,9 @@ void einsy_tmc_do_step(uint8_t mask)
 	asm("nop");
 }
 
-// Timer 0 is shared with millies
-ISR(TIMER0_COMPB_vect)
-{
-	adc_cycle(); //
-	lcd_cycle(); //slower lcd (full screen ~64ms)
-}
-
 void adc_ready(void)
 {
 	uint8_t i;
 	for (i = 0; i < 7; i++)
 		einsy_adc_val[i] = adc_val[i] >> 4;
 }
-

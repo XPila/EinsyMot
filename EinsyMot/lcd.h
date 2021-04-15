@@ -40,7 +40,7 @@ extern FILE* lcdin;
 extern FILE* lcdout;
 #endif //LCD_FILE
 
-
+extern void lcd_erase_screen(uint8_t wait);
 extern void lcd_init(void);
 extern void lcd_cmd(uint8_t cmd, uint8_t wait);
 extern void lcd_chr(uint8_t chr, uint8_t wait);

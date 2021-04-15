@@ -39,11 +39,6 @@
 
 
 //--------------------------------------
-//CMD configuration (file stream command processor)
-#define CMD_MAX_LINE 42        //;-)
-
-
-//--------------------------------------
 //LCD configuration
 #define LCD_4BIT           // 4bit mode
 #define LCD_KNOB           // lcd knob input
@@ -94,7 +89,7 @@
 
 //--------------------------------------
 //ST4 - stepper motion control
-#define ST4_TIMER      1
+#define ST4_TIMER      3
 #define ST4_NUMAXES    4
 //direction control
 #define ST4_GET_DIR    einsy_tmc_get_dir

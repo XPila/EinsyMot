@@ -1,6 +1,10 @@
-////main.cpp
+//main.cpp
+/*        
+st4_msk = 0x00; // vypne vsechny pohyby
+*/
 
 //#include "main.h"
+#include "swdelay.h"
 #include <stdio.h>
 #include <string.h>
 #include <Arduino.h>
@@ -8,17 +12,18 @@
 #include <avr/wdt.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#include <avr/eeprom.h>
 #include <avr/delay.h>
 #include <avr/boot.h>
+#include <math.h>
 #include "uart.h"
-#include "adc.h"
+//#include "adc.h"
 #include "lcd.h"
 #include "spi.h"
 #include "tmc2130.h"
 #include "st4.h"
 #include "einsy.h"
-#include "cmd_einsy.h"
-
+#include "cmd.h"
 
 #if (UART_COM == 0)
 FILE* uart_com = uart0io;
@@ -28,292 +33,175 @@ FILE* uart_com = uart0io;
 #define uart_com uart1io
 #endif //(UART_COM == 0)
 
+#define LCD_BTN_PIN PH6
+#define LCD_BTN_DDR DDRH
+#define LCD_BTN_PORT PINH
 
+void lcd_blank ( void );
 void setup_osc(void);
 
 int loop_cnt = 0;
-//typedef void (*menu_func_t)(void);
-//menu_func_t menu = 0;
-//int item_cur = 0;
-//int item_top = 0;
+typedef void (*menu_func_t)(void);
+menu_func_t menu = 0;
+menu_func_t actual_menu = 0;
+int item_cur = 0;
+int item_top = 0;
 
-#if 0
-void menu_A(void);
-void menu_B(void);
-#endif
+void einsy_tmc_set_ena_axis(uint8_t axis,uint8_t en);
+void einsy_tmc_set_dir_axis(uint8_t axis,uint8_t dir);
 
+void menu_main ( void );
+
+void ports_init ( void );
+
+// Timer 0 is shared with millies
+ISR(TIMER0_COMPB_vect)
+{
+  lcd_cycle();
+}
+
+//INT6 - pri pruchodu sroubu kolem PINDY
+ISR(INT6_vect)
+{
+}
 
 //initialization after reset
 void setup(void)
 {
-//	uint16_t cnt;
-//	int8_t ret;
+//-------------nastaveni portu
+  ports_init ();
+//-----------------------
 
-	wdt_disable();
+  wdt_disable();
+  setup_osc(); //nastaveni oscilatoru CPU
 
-	setup_osc();
+  uart0_init(); //uart0
+  uart1_init(); //uart1
 
-	uart0_init(); //uart0
-	uart1_init(); //uart1
+  #if (UART_STD == 0)
+  stdin = uart0io; // stdin = uart0
+  stdout = uart0io; // stdout = uart0
+  #elif (UART_STD == 1)
+  stdin = uart1io; // stdin = uart1
+  stdout = uart1io; // stdout = uart1
+  #endif //(UART_STD == 1)
 
-#if (UART_STD == 0)
-	stdin = uart0io; // stdin = uart0
-	stdout = uart0io; // stdout = uart0
-#elif (UART_STD == 1)
-	stdin = uart1io; // stdin = uart1
-	stdout = uart1io; // stdout = uart1
-#endif //(UART_STD == 1)
+  cmd_in = uart_com;
+  cmd_out = uart_com;
+  cmd_err = uart_com;
 
-	uart_com = uart0io;
+  fflush(uart_com);
 
-	cmd_in = uart_com;
-	cmd_out = uart_com;
-	cmd_err = uart_com;
+  einsy_io_setup_pins();
+  einsy_tmc_setup_pins();
 
-#ifdef _SIMULATOR
-	cmd_in = stdin;
-	cmd_out = stdout;
-	cmd_err = stderr;
-#endif //_SIMULATOR
+  spi_init();
+  lcd_init();
 
-	fprintf_P(cmd_out, PSTR("start\n")); //startup message
-	fflush(cmd_out);
+//-------------TMC block start
+  einsy_io_setup_pins();
+  einsy_tmc_setup_pins();
+  tmc2130_init();
+  st4_setup_timer();
+  OCR0B = 128;
+  TIMSK0 |= (1 << OCIE0B);
 
-	adc_init();
+  lcd_blank();
+//-------------nacteni hodnot z EEPROM
+/*
+  cam_mode = eeprom_read_word ( ( uint16_t* ) MODE_ADDR );
+  if ( cam_mode == MODE_BOTH ) cam_mode = MODE_BOTH; 
+  else cam_mode = MODE_ONE ;
+  eeprom_write_word ( ( uint16_t* ) MODE_ADDR, cam_mode );
+*/
 
-	lcd_init();
-	fprintf_P(lcdout, PSTR(ESC_H(0,0)"Einsy motion\ntest")); //startup message
-	fflush(lcdout);
-	loop_cnt = -100;
-
-	einsy_io_setup_pins();
-
-	einsy_tmc_setup_pins();
-
-	spi_init();
-
-	tmc2130_init();
-
-	tmc2130_set_cur(0, 20);
-	tmc2130_set_cur(1, 30);
-	tmc2130_set_cur(2, 30);
-	tmc2130_set_cur(3, 30);
-
-	tmc2130_set_sgt(0, 8);
-	tmc2130_set_sgt(1, 8);
-	tmc2130_set_sgt(2, 8);
-	tmc2130_set_sgt(3, 8);
-
-	// res - resolution [steps/unit]
-	// sr0 - starting steprate [unit/s]
-	// srm - maximum steprate [unit/s]
-	// acc - acceleration [unit/s^2]
-	// dec - deceleration [unit/s^2]
-	//          axis  res  sr0   srm  acc  dec
-	st4_setup_axis(0, 100,  10,  200, 650, 650);
-	st4_setup_axis(1, 100,  10,  200, 650, 650);
-	st4_setup_axis(2, 400,   2,   40, 100, 100);
-	st4_setup_axis(3, 280,  20,   50, 400, 400);
-
-#if 0
-	st4_setup_axis(4, 100, 10, 210, 650, 650); //res=400ustep/mm, sr0=1mm/s, srm=10mm/s, acc=10mm/s^2, dec=10mm/s^2
-
-
-	uint16_t dx = 20000;
-	uint16_t dy = 20000;
-	uint16_t dz = 0;
-	uint16_t de = 0;
-	uint32_t dd = ((uint32_t)dx * dx) + ((uint32_t)dy * dy) + ((uint32_t)dz * dz) + ((uint32_t)de * de);
-	uint16_t d = sqrt(dd);
-
-	st4_axis[0].srx.ui16.h = dx;
-	st4_axis[0].cnt = 0;
-	st4_axis[1].srx.ui16.h = dy;
-	st4_axis[1].cnt = 0;
-	st4_axis[2].srx.ui16.h = dz;
-	st4_axis[2].cnt = 0;
-	st4_axis[3].srx.ui16.h = de;
-	st4_axis[3].cnt = 0;
-
-	st4_axis[4].cnt = d;
-	st4_axis[4].srx.ui16.l = 0;
-	st4_axis[4].srx.ui16.h = st4_axis[4].sr0;
-	st4_calc_move(4, d);
-/*	st4_axis[4].cac = st4_axis[4].nac;
-	st4_axis[4].cdc = st4_axis[4].ndc;
-	st4_axis[4].crm = d - (st4_axis[4].cac + st4_axis[4].cdc);
-	st4_axis[4].flg = 0x0f;*/
-
-	st4_msk = 0x07;
-	einsy_tmc_set_ena(0x07);
-
-#endif
-
-	_delay_ms(50);
-
-	st4_setup_timer();
-
-	OCR0B = 128;
-	TIMSK0 |= (1 << OCIE0B);
-
-
-	//st4_fprint_sr2d2_tab(cmd_err);
-	//st4_fprint_sr_d2(cmd_err, ST4_THR_SR0, ST4_THR_SR4);
-	//st4_gen_seg(ST4_THR_SR3, 6, 0);
-//	menu = menu_A;
+  einsy_tmc_set_ena ( 0x00 ); // disable all
+  lcd_blank();
+  fprintf_P(lcdout, PSTR(ESC_H(0,0)"Startujem!"));
+  lcd_blank();
+  menu = menu_main;
 }
 
-#if 0
-void menu_A(void)
+void menu_main(void)
 {
-	int item_max = 4;
-	int key = lcd_get();
-	if (loop_cnt == 0) fprintf_P(lcdout, PSTR(ESC_2J ESC_H(0,0)));
-	if (item_top > item_cur) item_top = item_cur;
-	if (item_top < (item_cur - 3)) item_top = (item_cur - 3);
-	int item; for (item = item_top; item < (item_top + 4); item++)
-	{
-		switch (item)
-		{
-		case 0:
-			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemA0\n"), (item == item_cur)?'>':' ');
-			else if ((item == item_cur) && (key == '\n'))
-			{
-				item_cur = 0;
-				item_top = 0;
-				menu = menu_B;
-				return;
-			}
-			break;
-		case 1:
-			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemA1\n"), (item == item_cur)?'>':' ');
-			break;
-		case 2:
-			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemA2\n"), (item == item_cur)?'>':' ');
-			break;
-		case 3:
-			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemA3\n"), (item == item_cur)?'>':' ');
-			break;
-		case 4:
-			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemA4\n"), (item == item_cur)?'>':' ');
-			break;
-		}
-	}
-	if (key == '+')
-	{
-		item_cur++;
-		loop_cnt = -1;
-	}
-	else if (key == '-')
-	{
-		item_cur--;
-		loop_cnt = -1;
-	}
-	if (item_cur < 0) item_cur = 0;
-	if (item_cur > item_max) item_cur = item_max;
-}
-
-void menu_B(void)
-{
-	int item_max = 4;
-	int key = lcd_get();
-	if (loop_cnt == 0) fprintf_P(lcdout, PSTR(ESC_2J ESC_H(0,0)));
-	if (item_top > item_cur) item_top = item_cur;
-	if (item_top < (item_cur - 3)) item_top = (item_cur - 3);
-	int item; for (item = item_top; item < (item_top + 4); item++)
-	{
-		switch (item)
-		{
-		case 0:
-			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemB0\n"), (item == item_cur)?'>':' ');
-			break;
-		case 1:
-			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemB1\n"), (item == item_cur)?'>':' ');
-			break;
-		case 2:
-			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemB2\n"), (item == item_cur)?'>':' ');
-			break;
-		case 3:
-			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemB3\n"), (item == item_cur)?'>':' ');
-			break;
-		case 4:
-			if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c itemB4\n"), (item == item_cur)?'>':' ');
-			break;
-		}
-	}
-	if (key == '+')
-	{
-		item_cur++;
-		loop_cnt = -1;
-	}
-	else if (key == '-')
-	{
-		item_cur--;
-		loop_cnt = -1;
-	}
-	else if (key == '\n')
-	{
-		item_cur = 0;
-		item_top = 0;
-		menu = menu_A;
-	}
-	if (item_cur < 0) item_cur = 0;
-	if (item_cur > item_max) item_cur = item_max;
-}
-#endif
+  int item_max = 3; // pocet polozek - 1
+  int key = lcd_get();
+  if (loop_cnt == 0) fprintf_P(lcdout, PSTR(ESC_H(0,0)));
+  if (item_top > item_cur) item_top = item_cur;
+  if (item_top < (item_cur - 3)) item_top = (item_cur - 3); //scroll (+1)
+  int item; for (item = item_top; item < (item_top + 4); item++) // pocet zobrazenych polozek
+  {
+    switch (item)
+    {
+    case 0:
+      if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c0\n"), (item == item_cur)?'>':' ');
+      else if ((item == item_cur) && (key == '\n')) 
+      {
+        item_cur = 0;
+        item_top = 0;
+        lcd_blank();
+        menu = menu_main;
+      }
+      break;
+    case 1:
+      if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c1\n"), (item == item_cur)?'>':' ');
+      else if ((item == item_cur) && (key == '\n'))
+      {
+        item_cur = 0;
+        item_top = 0;
+        lcd_blank();
+        menu = menu_main;
+        return;
+      }
+      break;
+    case 2:
+      if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c2\n"), (item == item_cur)?'>':' ');
+      else if ((item == item_cur) && (key == '\n'))
+      {
+        item_cur = 0;
+        item_top = 0;
+        lcd_blank();
+        menu = menu_main;
+        return;
+      }
+      break;
+    case 3:
+      if (loop_cnt == 0) fprintf_P(lcdout, PSTR("%c3\n"), (item == item_cur)?'>':' ');
+      else if ((item == item_cur) && (key == '\n'))
+      {
+        item_cur = 0;
+        item_top = 0;
+        lcd_blank();
+        menu = menu_main;
+        return;
+      }
+      break;
+    }
+  }
+  if (key == '+')
+  {
+    item_cur++;
+    loop_cnt = -1;
+  }
+  else if (key == '-')
+  {
+    item_cur--;
+    loop_cnt = -1;
+  }
+  if (item_cur < 0) item_cur = 0;
+  if (item_cur > item_max) item_cur = item_max;
+} 
 
 //main loop
 void loop(void)
 {
-//	st4_cycle();
 	cmd_process();
 	loop_cnt++;
 	if (loop_cnt > 10000) loop_cnt = 0;
-//	if (loop_cnt++ == 0)
-//	{
-//		(*menu)();
-//	}
-
-#if 0
-	int key = lcd_get();
-	if (key > 0)
 	{
-//		fputc(key, cmd_err);
+		(*menu)();
 	}
-#endif
 
-#if 0
-	if (loop_cnt++ == 0)
-	fprintf_P(lcdout, PSTR(ESC_H(0,0)"%04d %04d %04d %04d\n%04d %04d %04d %04d"),
-		einsy_adc_val[0],
-		einsy_adc_val[1],
-		einsy_adc_val[2],
-		einsy_adc_val[3],
-		einsy_adc_val[4],
-		einsy_adc_val[5],
-		einsy_adc_val[6],
-		einsy_adc_val[7]
-		);
-#endif
-
-#if 0
-	if (st4_msk & 1)
-	{
-		uint16_t sg = tmc2130_read_sg(0);
-		uint16_t srxh = st4_axis[0].srx.ui16.h;
-		uint16_t diag = einsy_tmc_get_diag();
-		uint32_t ms = millis();
-		fprintf_P(uart_com, PSTR("sgX=%5d diag=%d millis=%ld srxh=%u\n"), sg, diag, ms, srxh);
-	}
-#endif
-
-#if 0
-	if (einsy_tmc_get_ena())
-	if (((st4_msk & 0x0f) == 0) || (millis() > 6000))
-	{
-		einsy_tmc_set_ena(0x00);
-	}
-#endif
 }
 
 void setup_osc(void)
@@ -328,3 +216,56 @@ void setup_osc(void)
 
 //extern "C" {
 //}
+
+void lcd_blank ( void )
+{
+  fprintf_P(lcdout, PSTR(ESC_H(0,0)"                    "));
+  fprintf_P(lcdout, PSTR(ESC_H(0,1)"                    "));
+  fprintf_P(lcdout, PSTR(ESC_H(0,2)"                    "));
+  fprintf_P(lcdout, PSTR(ESC_H(0,3)"                    "));
+}
+
+void ports_init ( void )
+{
+}
+
+void einsy_tmc_set_ena_axis ( uint8_t axis, uint8_t en )
+{
+  if (en)
+    switch (axis)
+    {
+    case 3: PORTA &= ~0x10; break;
+    case 2: PORTA &= ~0x20; break;
+    case 1: PORTA &= ~0x40; break;
+    case 0: PORTA &= ~0x80; break;
+    }
+  else
+    switch (axis)
+    {
+    case 3: PORTA |= 0x10; break;
+    case 2: PORTA |= 0x20; break;
+    case 1: PORTA |= 0x40; break;
+    case 0: PORTA |= 0x80; break;
+    }
+}
+
+void einsy_tmc_set_dir_axis (uint8_t axis, uint8_t dir )
+{
+  if (dir)
+    switch (axis)
+    {
+    case 0: PORTL |= 0x01; break;
+    case 1: PORTL |= 0x02; break;
+    case 2: PORTL |= 0x04; break;
+    case 3: PORTL |= 0x40; break;
+    }
+  else
+    switch (axis)
+    {
+    case 0: PORTL &= ~0x01; break;
+    case 1: PORTL &= ~0x02; break;
+    case 2: PORTL &= ~0x04; break;
+    case 3: PORTL &= ~0x40; break;
+    }
+}
+
