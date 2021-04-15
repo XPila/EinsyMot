@@ -214,6 +214,35 @@ int8_t st4_moa(uint8_t axis, int32_t val)
 	return st4_mor(axis, val - st4_axis[axis].pos);
 }
 
+int8_t st4_mov(uint8_t axis, int32_t val)
+{
+	uint8_t msk = 1 << axis;
+	uint16_t srx = 0;
+	if (val == 0)
+	{
+		_srxl(axis) = 0;
+		_srxh(axis) = 0;
+		st4_msk &= ~msk;
+		return 0;
+	}
+	else if (val > 0)
+	{
+		ST4_SET_DIR(ST4_GET_DIR() & ~msk);
+		st4_msk &= ~(msk << 4);
+		srx = val;
+	}
+	else
+	{
+		ST4_SET_DIR(ST4_GET_DIR() | msk);
+		st4_msk |= msk << 4;
+		srx = -val;
+	}
+	_srxl(axis) = 0;
+	_srxh(axis) = srx;
+	st4_msk |= msk;
+	return 0;
+}
+
 void st4_setup_axis(uint8_t axis, uint16_t res, float sr0_mms, float srm_mms, float acc_mms2, float dec_mms2)
 {
 	memset(&(st4_axis[axis]), 0, sizeof(st4_axis_t));
